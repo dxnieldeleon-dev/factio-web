@@ -711,7 +711,11 @@ function StepItems({
   clientType: string | undefined;
   onNext: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // El catálogo es el estado inicial del paso: no se requiere tocar
+  // "Agregar concepto" para verlo.
+  const [open, setOpen] = useState(true);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   // Un producto agregado desde el catálogo ya trae sus datos fiscales
   // correctos, así que se muestra colapsado (solo nombre, cantidad y
   // subtotal) y no obliga a revisar clave SAT/unidad/IVA cada vez. Un
@@ -732,6 +736,31 @@ function StepItems({
     },
   });
 
+  // El catálogo de cada negocio es acotado (RLS lo limita a sus propios
+  // productos), así que filtrar en cliente sobre la lista ya cargada evita
+  // una consulta por cada tecleo. El debounce solo suaviza el re-render.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 280);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const filteredProducts = useMemo(() => {
+    const list = products ?? [];
+    const q = debouncedQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((p) => p.description.toLowerCase().includes(q));
+  }, [products, debouncedQuery]);
+
+  function openCatalog() {
+    setQuery("");
+    setOpen(true);
+  }
+
+  function closeCatalog() {
+    setQuery("");
+    setOpen(false);
+  }
+
   function addProduct(p: ProductRow) {
     setItems([
       ...items,
@@ -749,7 +778,7 @@ function StepItems({
         iva_retencion_rate: p.iva_retencion_rate === null ? null : Number(p.iva_retencion_rate),
       },
     ]);
-    setOpen(false);
+    closeCatalog();
   }
 
   function addManual() {
@@ -769,7 +798,7 @@ function StepItems({
         iva_retencion_rate: null,
       },
     ]);
-    setOpen(false);
+    closeCatalog();
   }
 
   function update(idx: number, patch: Partial<LineItem>) {
@@ -937,8 +966,17 @@ function StepItems({
           <p className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
             Elige del catálogo
           </p>
+          <div className="relative mb-2">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar producto o servicio…"
+              className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-ring"
+            />
+          </div>
           <div className="max-h-72 space-y-1.5 overflow-y-auto">
-            {(products ?? []).map((p) => (
+            {filteredProducts.map((p) => (
               <button
                 key={p.id}
                 onClick={() => addProduct(p)}
@@ -966,6 +1004,11 @@ function StepItems({
                 <span className="shrink-0 text-sm font-bold">{formatMXN(p.unit_price)}</span>
               </button>
             ))}
+            {filteredProducts.length === 0 && (products ?? []).length > 0 && (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                Sin productos que coincidan con “{query.trim()}”.
+              </p>
+            )}
             {(products ?? []).length === 0 && (
               <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                 Tu catálogo está vacío.
@@ -987,7 +1030,7 @@ function StepItems({
             </button>
           </div>
           <button
-            onClick={() => setOpen(false)}
+            onClick={closeCatalog}
             className="mt-2 w-full rounded-xl bg-muted py-2 text-xs font-semibold text-muted-foreground"
           >
             Cancelar
@@ -995,7 +1038,7 @@ function StepItems({
         </div>
       ) : (
         <button
-          onClick={() => setOpen(true)}
+          onClick={openCatalog}
           className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border bg-surface py-3 text-sm font-semibold text-primary"
         >
           <Plus className="size-4" /> Agregar concepto
