@@ -380,6 +380,56 @@ export type Database = {
           },
         ]
       }
+      invoice_profiles: {
+        Row: {
+          cfdi_type: string
+          company_id: string
+          created_at: string
+          currency: string
+          export_code: string
+          id: string
+          is_default: boolean
+          payment_form: string
+          payment_method: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cfdi_type?: string
+          company_id: string
+          created_at?: string
+          currency?: string
+          export_code?: string
+          id?: string
+          is_default?: boolean
+          payment_form?: string
+          payment_method?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cfdi_type?: string
+          company_id?: string
+          created_at?: string
+          currency?: string
+          export_code?: string
+          id?: string
+          is_default?: boolean
+          payment_form?: string
+          payment_method?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_profiles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           cancellation_pac_response: Json | null
@@ -1109,6 +1159,8 @@ export type Database = {
         Args: { p_company_id: string; p_invoice_id: string }
         Returns: boolean
       }
+      get_csd_encryption_key: { Args: never; Returns: string }
+      get_dashboard_metrics: { Args: never; Returns: Json }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
