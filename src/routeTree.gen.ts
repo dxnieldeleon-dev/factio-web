@@ -22,6 +22,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile.index'
 import { Route as AuthenticatedProductsIndexRouteImport } from './routes/_authenticated/products.index'
 import { Route as AuthenticatedClientsIndexRouteImport } from './routes/_authenticated/clients.index'
+import { Route as AuthenticatedProfileInvoicingRouteImport } from './routes/_authenticated/profile.invoicing'
 import { Route as AuthenticatedProfileFiscalRouteImport } from './routes/_authenticated/profile.fiscal'
 import { Route as AuthenticatedProfileCsdRouteImport } from './routes/_authenticated/profile.csd'
 import { Route as AuthenticatedProductsNewRouteImport } from './routes/_authenticated/products.new'
@@ -99,6 +100,12 @@ const AuthenticatedClientsIndexRoute =
     path: '/clients/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedProfileInvoicingRoute =
+  AuthenticatedProfileInvoicingRouteImport.update({
+    id: '/profile/invoicing',
+    path: '/profile/invoicing',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProfileFiscalRoute =
   AuthenticatedProfileFiscalRouteImport.update({
     id: '/profile/fiscal',
@@ -167,6 +174,7 @@ export interface FileRoutesByFullPath {
   '/products/new': typeof AuthenticatedProductsNewRoute
   '/profile/csd': typeof AuthenticatedProfileCsdRoute
   '/profile/fiscal': typeof AuthenticatedProfileFiscalRoute
+  '/profile/invoicing': typeof AuthenticatedProfileInvoicingRoute
   '/clients/': typeof AuthenticatedClientsIndexRoute
   '/products/': typeof AuthenticatedProductsIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
@@ -190,6 +198,7 @@ export interface FileRoutesByTo {
   '/products/new': typeof AuthenticatedProductsNewRoute
   '/profile/csd': typeof AuthenticatedProfileCsdRoute
   '/profile/fiscal': typeof AuthenticatedProfileFiscalRoute
+  '/profile/invoicing': typeof AuthenticatedProfileInvoicingRoute
   '/clients': typeof AuthenticatedClientsIndexRoute
   '/products': typeof AuthenticatedProductsIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
@@ -215,6 +224,7 @@ export interface FileRoutesById {
   '/_authenticated/products/new': typeof AuthenticatedProductsNewRoute
   '/_authenticated/profile/csd': typeof AuthenticatedProfileCsdRoute
   '/_authenticated/profile/fiscal': typeof AuthenticatedProfileFiscalRoute
+  '/_authenticated/profile/invoicing': typeof AuthenticatedProfileInvoicingRoute
   '/_authenticated/clients/': typeof AuthenticatedClientsIndexRoute
   '/_authenticated/products/': typeof AuthenticatedProductsIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/profile/csd'
     | '/profile/fiscal'
+    | '/profile/invoicing'
     | '/clients/'
     | '/products/'
     | '/profile/'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/products/new'
     | '/profile/csd'
     | '/profile/fiscal'
+    | '/profile/invoicing'
     | '/clients'
     | '/products'
     | '/profile'
@@ -287,6 +299,7 @@ export interface FileRouteTypes {
     | '/_authenticated/products/new'
     | '/_authenticated/profile/csd'
     | '/_authenticated/profile/fiscal'
+    | '/_authenticated/profile/invoicing'
     | '/_authenticated/clients/'
     | '/_authenticated/products/'
     | '/_authenticated/profile/'
@@ -397,6 +410,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/profile/invoicing': {
+      id: '/_authenticated/profile/invoicing'
+      path: '/profile/invoicing'
+      fullPath: '/profile/invoicing'
+      preLoaderRoute: typeof AuthenticatedProfileInvoicingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile/fiscal': {
       id: '/_authenticated/profile/fiscal'
       path: '/profile/fiscal'
@@ -474,6 +494,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedProductsNewRoute: typeof AuthenticatedProductsNewRoute
   AuthenticatedProfileCsdRoute: typeof AuthenticatedProfileCsdRoute
   AuthenticatedProfileFiscalRoute: typeof AuthenticatedProfileFiscalRoute
+  AuthenticatedProfileInvoicingRoute: typeof AuthenticatedProfileInvoicingRoute
   AuthenticatedClientsIndexRoute: typeof AuthenticatedClientsIndexRoute
   AuthenticatedProductsIndexRoute: typeof AuthenticatedProductsIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
@@ -492,6 +513,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedProductsNewRoute: AuthenticatedProductsNewRoute,
   AuthenticatedProfileCsdRoute: AuthenticatedProfileCsdRoute,
   AuthenticatedProfileFiscalRoute: AuthenticatedProfileFiscalRoute,
+  AuthenticatedProfileInvoicingRoute: AuthenticatedProfileInvoicingRoute,
   AuthenticatedClientsIndexRoute: AuthenticatedClientsIndexRoute,
   AuthenticatedProductsIndexRoute: AuthenticatedProductsIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,

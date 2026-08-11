@@ -47,6 +47,7 @@ import {
   type ReceiverProfile,
 } from "@/lib/fiscal";
 import { resolveTaxTreatment } from "@/lib/tax-withholding";
+import { loadInvoiceProfile, saveInvoiceProfile } from "@/features/profile/invoice-profile";
 
 export const Route = createFileRoute("/_authenticated/invoices/new")({
   component: NewInvoice,
@@ -157,13 +158,18 @@ function NewInvoice() {
   const [receiver, setReceiver] = useState<ReceiverProfile | null>(null);
   const [saveReceiverEdits, setSaveReceiverEdits] = useState(false);
 
-  // Datos fiscales del comprobante
+  // Datos fiscales del comprobante — arrancan con los defaults "de siempre"
+  // (Ingreso/PUE/Transferencia/MXN) y se sobreescriben una sola vez si el
+  // emisor tiene un perfil de facturación guardado (ver efecto más abajo).
   const [cfdiType, setCfdiType] = useState("I");
   const [paymentMethod, setPaymentMethod] = useState("PUE");
   const [paymentForm, setPaymentForm] = useState("03");
   const [currency, setCurrency] = useState("MXN");
   const [exchangeRate, setExchangeRate] = useState(1);
   const [exportCode, setExportCode] = useState("01");
+  const [advancedInvoiceOpen, setAdvancedInvoiceOpen] = useState(false);
+  const [saveAsDefaultProfile, setSaveAsDefaultProfile] = useState(false);
+  const [invoiceProfileApplied, setInvoiceProfileApplied] = useState(false);
 
   const [issuing, setIssuing] = useState(false);
   const [result, setResult] = useState<{
@@ -190,6 +196,30 @@ function NewInvoice() {
       return data;
     },
   });
+
+  // Defaults de facturación del emisor (Tipo de Comprobante/Moneda/Método/
+  // Forma de pago) — ver ADR-004. Si no existe, el formulario se comporta
+  // como antes de esta feature (todos los campos visibles con los mismos
+  // defaults hardcodeados de arriba).
+  const { data: invoiceProfile } = useQuery({
+    queryKey: ["invoice-profile", issuer?.id],
+    queryFn: () => loadInvoiceProfile(issuer!.id),
+    enabled: !!issuer?.id,
+  });
+  const hasInvoiceProfile = !!invoiceProfile;
+
+  // Se aplica una sola vez (invoiceProfileApplied) para no pisar ediciones
+  // que el usuario ya haya hecho en modo avanzado mientras la query resuelve.
+  useEffect(() => {
+    if (!invoiceProfile || invoiceProfileApplied) return;
+    setCfdiType(invoiceProfile.cfdi_type);
+    setExportCode(invoiceProfile.export_code);
+    setCurrency(invoiceProfile.currency);
+    if (invoiceProfile.currency === "MXN") setExchangeRate(1);
+    setPaymentMethod(invoiceProfile.payment_method);
+    setPaymentForm(invoiceProfile.payment_form);
+    setInvoiceProfileApplied(true);
+  }, [invoiceProfile, invoiceProfileApplied]);
 
   // Solo una vista previa: la Edge Function recalcula esto desde cero y es
   // la única fuente de verdad para lo que realmente se timbra.
@@ -491,6 +521,27 @@ function NewInvoice() {
         toast.success("Factura timbrada correctamente");
       }
 
+      // Solo se guarda si el usuario marcó explícitamente "guardar como
+      // default" y solo después de un timbrado exitoso — una factura que
+      // falla no debe dejar el perfil a medio actualizar.
+      if (saveAsDefaultProfile) {
+        try {
+          await saveInvoiceProfile(u.user.id, company.id, {
+            cfdi_type: cfdiType,
+            export_code: exportCode,
+            currency,
+            payment_method: paymentMethod,
+            payment_form: paymentForm,
+          });
+          qc.invalidateQueries({ queryKey: ["invoice-profile", company.id] });
+        } catch (profileError) {
+          console.error("No se pudo guardar el perfil de facturación:", profileError);
+          toast.warning(
+            "La factura se emitió, pero no se pudo guardar tu nuevo valor por defecto.",
+          );
+        }
+      }
+
       const { data: issuedInvoice, error: issuedInvoiceError } = await supabase
         .from("invoices")
         .select("id, series, folio, uuid_fiscal, xml_url, pdf_url")
@@ -597,6 +648,11 @@ function NewInvoice() {
             setExchangeRate={setExchangeRate}
             exportCode={exportCode}
             setExportCode={setExportCode}
+            hasInvoiceProfile={hasInvoiceProfile}
+            advancedOpen={advancedInvoiceOpen}
+            setAdvancedOpen={setAdvancedInvoiceOpen}
+            saveAsDefault={saveAsDefaultProfile}
+            setSaveAsDefault={setSaveAsDefaultProfile}
             onIssue={onIssue}
             issuing={issuing}
           />
@@ -1118,6 +1174,11 @@ type StepReviewProps = {
   setExchangeRate: (v: number) => void;
   exportCode: string;
   setExportCode: (v: string) => void;
+  hasInvoiceProfile: boolean;
+  advancedOpen: boolean;
+  setAdvancedOpen: (v: boolean) => void;
+  saveAsDefault: boolean;
+  setSaveAsDefault: (v: boolean) => void;
   onIssue: () => void;
   issuing: boolean;
 };
@@ -1146,6 +1207,11 @@ function StepReview(props: StepReviewProps) {
     setExchangeRate,
     exportCode,
     setExportCode,
+    hasInvoiceProfile,
+    advancedOpen,
+    setAdvancedOpen,
+    saveAsDefault,
+    setSaveAsDefault,
     onIssue,
     issuing,
   } = props;
@@ -1163,6 +1229,21 @@ function StepReview(props: StepReviewProps) {
   useEffect(() => {
     if (receiverBlocking) setEditReceiver(true);
   }, [receiverBlocking]);
+
+  // Misma lógica que arriba: si el perfil de facturación guardado produce
+  // una combinación inválida (ej. editado directo en la BD), se revela en
+  // vez de esconder el error detrás de "Opciones avanzadas".
+  useEffect(() => {
+    if (paymentError && hasInvoiceProfile) setAdvancedOpen(true);
+  }, [paymentError, hasInvoiceProfile, setAdvancedOpen]);
+
+  const invoiceSummaryParts = [
+    CFDI_TYPES.find((t) => t.code === cfdiType)?.name ?? cfdiType,
+    paymentMethod,
+    PAYMENT_FORMS.find((f) => f.code === paymentForm)?.name ?? paymentForm,
+    currency,
+  ];
+  const showInvoiceFields = !hasInvoiceProfile || advancedOpen;
 
   function upd<K extends keyof ReceiverProfile>(k: K, v: ReceiverProfile[K]) {
     const next = { ...receiver, [k]: v };
@@ -1292,104 +1373,144 @@ function StepReview(props: StepReviewProps) {
 
       {/* Datos del comprobante */}
       <div className="rounded-2xl border border-border bg-surface p-4">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Datos del comprobante
-        </p>
-        <div className="space-y-2.5">
-          <div className="grid grid-cols-2 gap-2">
-            <Mini label="Tipo de comprobante">
-              <select
-                value={cfdiType}
-                onChange={(e) => setCfdiType(e.target.value)}
-                className="ff-mini"
-              >
-                {CFDI_TYPES.map((t) => (
-                  <option key={t.code} value={t.code}>
-                    {t.code} — {t.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-            <Mini label="Exportación">
-              <select
-                value={exportCode}
-                onChange={(e) => setExportCode(e.target.value)}
-                className="ff-mini"
-              >
-                {EXPORT_CODES.map((e2) => (
-                  <option key={e2.code} value={e2.code}>
-                    {e2.code} — {e2.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Mini label="Moneda">
-              <select
-                value={currency}
-                onChange={(e) => {
-                  setCurrency(e.target.value);
-                  if (e.target.value === "MXN") setExchangeRate(1);
-                }}
-                className="ff-mini"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-            {currency !== "MXN" && (
-              <Mini label={`T. cambio ${currency}→MXN`}>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
-                  className="ff-mini font-mono"
-                />
-              </Mini>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Mini
-              label="Método"
-              error={paymentError && paymentMethod === "PPD" ? paymentError : undefined}
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Datos del comprobante
+          </p>
+          {hasInvoiceProfile && (
+            <button
+              type="button"
+              onClick={() => setAdvancedOpen(!advancedOpen)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
             >
-              <select
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-                className="ff-mini"
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.code} value={m.code}>
-                    {m.code} — {m.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-            <Mini
-              label="Forma de pago"
-              error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
-            >
-              <select
-                value={paymentForm}
-                onChange={(e) => setPaymentForm(e.target.value)}
-                className="ff-mini"
-              >
-                {PAYMENT_FORMS.map((f) => (
-                  <option key={f.code} value={f.code}>
-                    {f.code} — {f.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-          </div>
+              <Pencil className="size-3" /> {advancedOpen ? "Ocultar" : "Opciones avanzadas"}
+            </button>
+          )}
         </div>
+
+        {!showInvoiceFields && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {invoiceSummaryParts.map((part, i) => (
+              <span
+                key={i}
+                className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold"
+              >
+                {part}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {showInvoiceFields && (
+          <div className="mt-3 space-y-2.5">
+            <div className="grid grid-cols-2 gap-2">
+              <Mini label="Tipo de comprobante">
+                <select
+                  value={cfdiType}
+                  onChange={(e) => setCfdiType(e.target.value)}
+                  className="ff-mini"
+                >
+                  {CFDI_TYPES.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.code} — {t.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              <Mini label="Exportación">
+                <select
+                  value={exportCode}
+                  onChange={(e) => setExportCode(e.target.value)}
+                  className="ff-mini"
+                >
+                  {EXPORT_CODES.map((e2) => (
+                    <option key={e2.code} value={e2.code}>
+                      {e2.code} — {e2.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Mini label="Moneda">
+                <select
+                  value={currency}
+                  onChange={(e) => {
+                    setCurrency(e.target.value);
+                    if (e.target.value === "MXN") setExchangeRate(1);
+                  }}
+                  className="ff-mini"
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              {currency !== "MXN" && (
+                <Mini label={`T. cambio ${currency}→MXN`}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(Number(e.target.value))}
+                    onFocus={(e) => e.target.select()}
+                    className="ff-mini font-mono"
+                  />
+                </Mini>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Mini
+                label="Método"
+                error={paymentError && paymentMethod === "PPD" ? paymentError : undefined}
+              >
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="ff-mini"
+                >
+                  {PAYMENT_METHODS.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.code} — {m.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              <Mini
+                label="Forma de pago"
+                error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
+              >
+                <select
+                  value={paymentForm}
+                  onChange={(e) => setPaymentForm(e.target.value)}
+                  className="ff-mini"
+                >
+                  {PAYMENT_FORMS.map((f) => (
+                    <option key={f.code} value={f.code}>
+                      {f.code} — {f.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+            </div>
+
+            <label className="mt-1 flex items-center gap-2 rounded-xl bg-primary-soft/60 px-3 py-2 text-[11px]">
+              <input
+                type="checkbox"
+                checked={saveAsDefault}
+                onChange={(e) => setSaveAsDefault(e.target.checked)}
+                className="size-4 accent-[var(--primary)]"
+              />
+              <span>
+                <Save className="mr-1 inline size-3 -mt-0.5" />
+                Guardar como mi valor por defecto de facturación
+              </span>
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Conceptos + totales */}

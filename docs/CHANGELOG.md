@@ -4,6 +4,20 @@ Todos los cambios importantes del proyecto serán documentados aquí. Formato
 libre, orden cronológico descendente. No sigue SemVer porque Factio no
 publica versiones — se despliega de forma continua.
 
+## 2026-08-11
+
+- **Perfil de facturación por defecto.** Nueva tabla `invoice_profiles`
+  (por emisor, no por usuario — ver ADR-004) para guardar el Tipo de
+  Comprobante/Exportación/Moneda/Método/Forma de pago habituales de cada
+  negocio. El Paso 3 del wizard de nueva factura precarga esos valores y
+  colapsa la tarjeta "Datos del comprobante" a un resumen tipo chip, con un
+  toggle "Opciones avanzadas" para editarlos sin alterar el default (salvo
+  que se marque explícitamente "Guardar como mi valor por defecto de
+  facturación", y solo tras un timbrado exitoso). Nueva pantalla
+  `/profile/invoicing` para configurar el perfil fuera del flujo de
+  facturación. Si el emisor nunca configuró un perfil, el wizard se
+  comporta exactamente igual que antes (opt-in, no forzado).
+
 ## 2026-07-30
 
 - **Reconciliación de timbrados fallidos.** `facturama-create-cfdi` ya no

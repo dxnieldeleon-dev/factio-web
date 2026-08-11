@@ -10,6 +10,7 @@ import {
   Mail,
   Settings,
   ShieldCheck,
+  SlidersHorizontal,
   Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -216,6 +217,12 @@ function Profile() {
           subtitle={csdConfigured ? "CSD configurado" : "Configúralo para poder timbrar"}
           badge={csdConfigured ? "Listo" : undefined}
         />
+        <ProfileLink
+          to="/profile/invoicing"
+          icon={SlidersHorizontal}
+          title="Valores por defecto de facturación"
+          subtitle="Precarga el tipo de comprobante, método y forma de pago"
+        />
       </section>
 
       <section className="mt-8 space-y-3">
@@ -417,7 +424,7 @@ function ProfileLink({
   subtitle,
   badge,
 }: {
-  to: "/profile/fiscal" | "/profile/csd" | "/settings";
+  to: "/profile/fiscal" | "/profile/csd" | "/profile/invoicing" | "/settings";
   icon: typeof Settings;
   title: string;
   subtitle: string;
