@@ -11,6 +11,7 @@ const appUrl = Deno.env.get("APP_URL") ?? "https://factio.lovable.app";
 const corsHeaders = {
   "Access-Control-Allow-Origin": appUrl,
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 function json(body: unknown, status: number) {
