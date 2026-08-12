@@ -206,7 +206,6 @@ function NewInvoice() {
     queryFn: () => loadInvoiceProfile(issuer!.id),
     enabled: !!issuer?.id,
   });
-  const hasInvoiceProfile = !!invoiceProfile;
 
   // Se aplica una sola vez (invoiceProfileApplied) para no pisar ediciones
   // que el usuario ya haya hecho en modo avanzado mientras la query resuelve.
@@ -648,7 +647,6 @@ function NewInvoice() {
             setExchangeRate={setExchangeRate}
             exportCode={exportCode}
             setExportCode={setExportCode}
-            hasInvoiceProfile={hasInvoiceProfile}
             advancedOpen={advancedInvoiceOpen}
             setAdvancedOpen={setAdvancedInvoiceOpen}
             saveAsDefault={saveAsDefaultProfile}
@@ -1174,7 +1172,6 @@ type StepReviewProps = {
   setExchangeRate: (v: number) => void;
   exportCode: string;
   setExportCode: (v: string) => void;
-  hasInvoiceProfile: boolean;
   advancedOpen: boolean;
   setAdvancedOpen: (v: boolean) => void;
   saveAsDefault: boolean;
@@ -1207,7 +1204,6 @@ function StepReview(props: StepReviewProps) {
     setExchangeRate,
     exportCode,
     setExportCode,
-    hasInvoiceProfile,
     advancedOpen,
     setAdvancedOpen,
     saveAsDefault,
@@ -1230,20 +1226,12 @@ function StepReview(props: StepReviewProps) {
     if (receiverBlocking) setEditReceiver(true);
   }, [receiverBlocking]);
 
-  // Misma lógica que arriba: si el perfil de facturación guardado produce
-  // una combinación inválida (ej. editado directo en la BD), se revela en
-  // vez de esconder el error detrás de "Opciones avanzadas".
+  // Misma lógica que arriba: si "Método" (escondido en Opciones avanzadas)
+  // queda en una combinación inválida con la Forma de pago, se revela en
+  // vez de esconder el error.
   useEffect(() => {
-    if (paymentError && hasInvoiceProfile) setAdvancedOpen(true);
-  }, [paymentError, hasInvoiceProfile, setAdvancedOpen]);
-
-  const invoiceSummaryParts = [
-    CFDI_TYPES.find((t) => t.code === cfdiType)?.name ?? cfdiType,
-    paymentMethod,
-    PAYMENT_FORMS.find((f) => f.code === paymentForm)?.name ?? paymentForm,
-    currency,
-  ];
-  const showInvoiceFields = !hasInvoiceProfile || advancedOpen;
+    if (paymentError) setAdvancedOpen(true);
+  }, [paymentError, setAdvancedOpen]);
 
   function upd<K extends keyof ReceiverProfile>(k: K, v: ReceiverProfile[K]) {
     const next = { ...receiver, [k]: v };
@@ -1373,36 +1361,38 @@ function StepReview(props: StepReviewProps) {
 
       {/* Datos del comprobante */}
       <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Datos del comprobante
-          </p>
-          {hasInvoiceProfile && (
-            <button
-              type="button"
-              onClick={() => setAdvancedOpen(!advancedOpen)}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-            >
-              <Pencil className="size-3" /> {advancedOpen ? "Ocultar" : "Opciones avanzadas"}
-            </button>
-          )}
-        </div>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Datos del comprobante
+        </p>
 
-        {!showInvoiceFields && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {invoiceSummaryParts.map((part, i) => (
-              <span
-                key={i}
-                className="rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold"
-              >
-                {part}
-              </span>
+        <Mini
+          label="Forma de pago"
+          error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
+        >
+          <select
+            value={paymentForm}
+            onChange={(e) => setPaymentForm(e.target.value)}
+            className="ff-mini"
+          >
+            {PAYMENT_FORMS.map((f) => (
+              <option key={f.code} value={f.code}>
+                {f.code} — {f.name}
+              </option>
             ))}
-          </div>
-        )}
+          </select>
+        </Mini>
 
-        {showInvoiceFields && (
-          <div className="mt-3 space-y-2.5">
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary"
+        >
+          <Pencil className="size-3" />{" "}
+          {advancedOpen ? "Ocultar opciones avanzadas" : "Opciones avanzadas"}
+        </button>
+
+        {advancedOpen && (
+          <div className="mt-3 space-y-2.5 border-t border-border pt-3">
             <div className="grid grid-cols-2 gap-2">
               <Mini label="Tipo de comprobante">
                 <select
@@ -1462,40 +1452,22 @@ function StepReview(props: StepReviewProps) {
                 </Mini>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <Mini
-                label="Método"
-                error={paymentError && paymentMethod === "PPD" ? paymentError : undefined}
+            <Mini
+              label="Método"
+              error={paymentError && paymentMethod === "PPD" ? paymentError : undefined}
+            >
+              <select
+                value={paymentMethod}
+                onChange={(e) => setPaymentMethod(e.target.value)}
+                className="ff-mini"
               >
-                <select
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="ff-mini"
-                >
-                  {PAYMENT_METHODS.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.code} — {m.name}
-                    </option>
-                  ))}
-                </select>
-              </Mini>
-              <Mini
-                label="Forma de pago"
-                error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
-              >
-                <select
-                  value={paymentForm}
-                  onChange={(e) => setPaymentForm(e.target.value)}
-                  className="ff-mini"
-                >
-                  {PAYMENT_FORMS.map((f) => (
-                    <option key={f.code} value={f.code}>
-                      {f.code} — {f.name}
-                    </option>
-                  ))}
-                </select>
-              </Mini>
-            </div>
+                {PAYMENT_METHODS.map((m) => (
+                  <option key={m.code} value={m.code}>
+                    {m.code} — {m.name}
+                  </option>
+                ))}
+              </select>
+            </Mini>
 
             <label className="mt-1 flex items-center gap-2 rounded-xl bg-primary-soft/60 px-3 py-2 text-[11px]">
               <input
