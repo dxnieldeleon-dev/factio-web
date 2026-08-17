@@ -12,6 +12,7 @@ import {
   Pencil,
   Trash2,
   CopyPlus,
+  Mail,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,7 +80,7 @@ async function loadInvoice(id: string) {
     supabase
       .from("invoices")
       .select(
-        "id, series, folio, total, subtotal, iva_total, isr_retencion_total, iva_retencion_total, retentions_total, status, created_at, issued_at, uuid_fiscal, client_snapshot, xml_url, pdf_url, payment_method, payment_form, cfdi_use, currency, cancellation_reason, cancellation_status, cancellation_requested_at, cancellation_replacement_uuid, cancelled_at, client_id, clients(phone), stamping_status, stamping_error",
+        "id, series, folio, total, subtotal, iva_total, isr_retencion_total, iva_retencion_total, retentions_total, status, created_at, issued_at, uuid_fiscal, client_snapshot, xml_url, pdf_url, payment_method, payment_form, cfdi_use, currency, cancellation_reason, cancellation_status, cancellation_requested_at, cancellation_replacement_uuid, cancelled_at, client_id, clients(phone, email), stamping_status, stamping_error, email_sent_at, email_last_error",
       )
       .eq("id", id)
       .maybeSingle(),
@@ -111,6 +112,7 @@ function InvoiceDetail() {
   const [replacementUuid, setReplacementUuid] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [stamping, setStamping] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -168,6 +170,30 @@ function InvoiceDetail() {
       toast.error(err instanceof Error ? err.message : "No pudimos preparar el envío");
     } finally {
       setSendingWhatsApp(false);
+    }
+  }
+
+  async function sendInvoiceEmail() {
+    if (!data) return;
+    setSendingEmail(true);
+    try {
+      const { data: response, error } = await supabase.functions.invoke("send-invoice-email", {
+        body: { invoice_id: data.invoice.id },
+      });
+      if (error) {
+        throw new Error(
+          await getEdgeFunctionErrorMessage(error, "No fue posible enviar el correo."),
+        );
+      }
+      if (!response?.ok) {
+        throw new Error(response?.reason ?? "No fue posible enviar el correo.");
+      }
+      toast.success("Factura enviada por correo");
+      await refetch();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No pudimos enviar el correo");
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -388,7 +414,9 @@ function InvoiceDetail() {
   }
 
   const inv = data.invoice;
-  const snap = (inv.client_snapshot as { legal_name?: string; rfc?: string } | null) ?? {};
+  const snap =
+    (inv.client_snapshot as { legal_name?: string; rfc?: string; email?: string } | null) ?? {};
+  const clientEmail = inv.clients?.email ?? snap.email ?? null;
   const isDraft = inv.status === "draft";
   const isIssued = inv.status === "issued";
   const isCancelled = inv.status === "cancelled";
@@ -650,6 +678,22 @@ function InvoiceDetail() {
                 <span className="truncate">WhatsApp</span>
               </button>
             )}
+            {inv.pdf_url && (
+              <button
+                type="button"
+                onClick={sendInvoiceEmail}
+                disabled={sendingEmail || !clientEmail}
+                title={clientEmail ? undefined : "Este cliente no tiene un correo capturado."}
+                className="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full border border-border bg-surface px-2 py-1.5 text-xs font-semibold disabled:opacity-60"
+              >
+                {sendingEmail ? (
+                  <Loader2 className="size-3.5 shrink-0 animate-spin" />
+                ) : (
+                  <Mail className="size-3.5 shrink-0" />
+                )}
+                <span className="truncate">{inv.email_sent_at ? "Reenviar" : "Correo"}</span>
+              </button>
+            )}
             <button
               onClick={() => setConfirmOpen(true)}
               className="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded-full bg-destructive px-2 py-1.5 text-xs font-semibold text-destructive-foreground"
@@ -658,6 +702,22 @@ function InvoiceDetail() {
               <span className="truncate">Cancelar factura</span>
             </button>
           </div>
+          {!clientEmail && (
+            <p className="text-[11px] text-muted-foreground">
+              Agrega un correo al cliente para poder enviarle la factura por email.
+            </p>
+          )}
+          {inv.email_sent_at && (
+            <p className="text-[11px] text-muted-foreground">
+              Correo enviado el {formatDateMX(inv.email_sent_at)}
+              {inv.email_last_error ? " — el último reenvío falló, intenta de nuevo." : ""}
+            </p>
+          )}
+          {!inv.email_sent_at && inv.email_last_error && (
+            <p className="text-[11px] text-destructive">
+              No pudimos enviar la copia por correo automáticamente: {inv.email_last_error}
+            </p>
+          )}
         </section>
       )}
 
