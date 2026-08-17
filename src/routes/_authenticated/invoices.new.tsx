@@ -50,6 +50,7 @@ import {
   type ReceiverProfile,
 } from "@/lib/fiscal";
 import { resolveTaxTreatment } from "@/lib/tax-withholding";
+import { loadInvoiceProfile, saveInvoiceProfile } from "@/features/profile/invoice-profile";
 
 export const Route = createFileRoute("/_authenticated/invoices/new")({
   component: NewInvoice,
@@ -198,13 +199,18 @@ function NewInvoice() {
   );
   const [globalYear, setGlobalYear] = useState(new Date().getFullYear());
 
-  // Datos fiscales del comprobante
+  // Datos fiscales del comprobante — arrancan con los defaults "de siempre"
+  // (Ingreso/PUE/Transferencia/MXN) y se sobreescriben una sola vez si el
+  // emisor tiene un perfil de facturación guardado (ver efecto más abajo).
   const [cfdiType, setCfdiType] = useState("I");
   const [paymentMethod, setPaymentMethod] = useState("PUE");
   const [paymentForm, setPaymentForm] = useState("03");
   const [currency, setCurrency] = useState("MXN");
   const [exchangeRate, setExchangeRate] = useState(1);
   const [exportCode, setExportCode] = useState("01");
+  const [advancedInvoiceOpen, setAdvancedInvoiceOpen] = useState(false);
+  const [saveAsDefaultProfile, setSaveAsDefaultProfile] = useState(false);
+  const [invoiceProfileApplied, setInvoiceProfileApplied] = useState(false);
 
   const [issuing, setIssuing] = useState(false);
   const [result, setResult] = useState<{
@@ -231,6 +237,29 @@ function NewInvoice() {
       return data;
     },
   });
+
+  // Defaults de facturación del emisor (Tipo de Comprobante/Moneda/Método/
+  // Forma de pago) — ver ADR-004. Si no existe, el formulario se comporta
+  // como antes de esta feature (todos los campos visibles con los mismos
+  // defaults hardcodeados de arriba).
+  const { data: invoiceProfile } = useQuery({
+    queryKey: ["invoice-profile", issuer?.id],
+    queryFn: () => loadInvoiceProfile(issuer!.id),
+    enabled: !!issuer?.id,
+  });
+
+  // Se aplica una sola vez (invoiceProfileApplied) para no pisar ediciones
+  // que el usuario ya haya hecho en modo avanzado mientras la query resuelve.
+  useEffect(() => {
+    if (!invoiceProfile || invoiceProfileApplied) return;
+    setCfdiType(invoiceProfile.cfdi_type);
+    setExportCode(invoiceProfile.export_code);
+    setCurrency(invoiceProfile.currency);
+    if (invoiceProfile.currency === "MXN") setExchangeRate(1);
+    setPaymentMethod(invoiceProfile.payment_method);
+    setPaymentForm(invoiceProfile.payment_form);
+    setInvoiceProfileApplied(true);
+  }, [invoiceProfile, invoiceProfileApplied]);
 
   // Solo una vista previa: la Edge Function recalcula esto desde cero y es
   // la única fuente de verdad para lo que realmente se timbra.
@@ -592,6 +621,27 @@ function NewInvoice() {
         toast.success("Factura timbrada correctamente");
       }
 
+      // Solo se guarda si el usuario marcó explícitamente "guardar como
+      // default" y solo después de un timbrado exitoso — una factura que
+      // falla no debe dejar el perfil a medio actualizar.
+      if (saveAsDefaultProfile) {
+        try {
+          await saveInvoiceProfile(u.user.id, company.id, {
+            cfdi_type: cfdiType,
+            export_code: exportCode,
+            currency,
+            payment_method: paymentMethod,
+            payment_form: paymentForm,
+          });
+          qc.invalidateQueries({ queryKey: ["invoice-profile", company.id] });
+        } catch (profileError) {
+          console.error("No se pudo guardar el perfil de facturación:", profileError);
+          toast.warning(
+            "La factura se emitió, pero no se pudo guardar tu nuevo valor por defecto.",
+          );
+        }
+      }
+
       const { data: issuedInvoice, error: issuedInvoiceError } = await supabase
         .from("invoices")
         .select("id, series, folio, uuid_fiscal, xml_url, pdf_url")
@@ -711,6 +761,10 @@ function NewInvoice() {
             setExchangeRate={setExchangeRate}
             exportCode={exportCode}
             setExportCode={setExportCode}
+            advancedOpen={advancedInvoiceOpen}
+            setAdvancedOpen={setAdvancedInvoiceOpen}
+            saveAsDefault={saveAsDefaultProfile}
+            setSaveAsDefault={setSaveAsDefaultProfile}
             onIssue={onIssue}
             issuing={issuing}
           />
@@ -854,7 +908,11 @@ function StepItems({
   clientType: string | undefined;
   onNext: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  // El catálogo es el estado inicial del paso: no se requiere tocar
+  // "Agregar concepto" para verlo.
+  const [open, setOpen] = useState(true);
+  const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   // Un producto agregado desde el catálogo ya trae sus datos fiscales
   // correctos, así que se muestra colapsado (solo nombre, cantidad y
   // subtotal) y no obliga a revisar clave SAT/unidad/IVA cada vez. Un
@@ -875,6 +933,31 @@ function StepItems({
     },
   });
 
+  // El catálogo de cada negocio es acotado (RLS lo limita a sus propios
+  // productos), así que filtrar en cliente sobre la lista ya cargada evita
+  // una consulta por cada tecleo. El debounce solo suaviza el re-render.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedQuery(query), 280);
+    return () => clearTimeout(t);
+  }, [query]);
+
+  const filteredProducts = useMemo(() => {
+    const list = products ?? [];
+    const q = debouncedQuery.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((p) => p.description.toLowerCase().includes(q));
+  }, [products, debouncedQuery]);
+
+  function openCatalog() {
+    setQuery("");
+    setOpen(true);
+  }
+
+  function closeCatalog() {
+    setQuery("");
+    setOpen(false);
+  }
+
   function addProduct(p: ProductRow) {
     setItems([
       ...items,
@@ -892,7 +975,7 @@ function StepItems({
         iva_retencion_rate: p.iva_retencion_rate === null ? null : Number(p.iva_retencion_rate),
       },
     ]);
-    setOpen(false);
+    closeCatalog();
   }
 
   function addManual() {
@@ -912,7 +995,7 @@ function StepItems({
         iva_retencion_rate: null,
       },
     ]);
-    setOpen(false);
+    closeCatalog();
   }
 
   function update(idx: number, patch: Partial<LineItem>) {
@@ -1080,8 +1163,17 @@ function StepItems({
           <p className="mb-2 px-1 text-xs font-semibold uppercase text-muted-foreground">
             Elige del catálogo
           </p>
+          <div className="relative mb-2">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar producto o servicio…"
+              className="w-full rounded-xl border border-input bg-background py-2.5 pl-10 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-4 focus:ring-ring"
+            />
+          </div>
           <div className="max-h-72 space-y-1.5 overflow-y-auto">
-            {(products ?? []).map((p) => (
+            {filteredProducts.map((p) => (
               <button
                 key={p.id}
                 onClick={() => addProduct(p)}
@@ -1109,6 +1201,11 @@ function StepItems({
                 <span className="shrink-0 text-sm font-bold">{formatMXN(p.unit_price)}</span>
               </button>
             ))}
+            {filteredProducts.length === 0 && (products ?? []).length > 0 && (
+              <p className="px-3 py-4 text-center text-xs text-muted-foreground">
+                Sin productos que coincidan con “{query.trim()}”.
+              </p>
+            )}
             {(products ?? []).length === 0 && (
               <p className="px-3 py-4 text-center text-xs text-muted-foreground">
                 Tu catálogo está vacío.
@@ -1130,7 +1227,7 @@ function StepItems({
             </button>
           </div>
           <button
-            onClick={() => setOpen(false)}
+            onClick={closeCatalog}
             className="mt-2 w-full rounded-xl bg-muted py-2 text-xs font-semibold text-muted-foreground"
           >
             Cancelar
@@ -1138,7 +1235,7 @@ function StepItems({
         </div>
       ) : (
         <button
-          onClick={() => setOpen(true)}
+          onClick={openCatalog}
           className="flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-border bg-surface py-3 text-sm font-semibold text-primary"
         >
           <Plus className="size-4" /> Agregar concepto
@@ -1225,6 +1322,10 @@ type StepReviewProps = {
   setExchangeRate: (v: number) => void;
   exportCode: string;
   setExportCode: (v: string) => void;
+  advancedOpen: boolean;
+  setAdvancedOpen: (v: boolean) => void;
+  saveAsDefault: boolean;
+  setSaveAsDefault: (v: boolean) => void;
   onIssue: () => void;
   issuing: boolean;
 };
@@ -1260,6 +1361,10 @@ function StepReview(props: StepReviewProps) {
     setExchangeRate,
     exportCode,
     setExportCode,
+    advancedOpen,
+    setAdvancedOpen,
+    saveAsDefault,
+    setSaveAsDefault,
     onIssue,
     issuing,
   } = props;
@@ -1278,6 +1383,13 @@ function StepReview(props: StepReviewProps) {
   useEffect(() => {
     if (receiverBlocking) setEditReceiver(true);
   }, [receiverBlocking]);
+
+  // Misma lógica que arriba: si "Método" (escondido en Opciones avanzadas)
+  // queda en una combinación inválida con la Forma de pago, se revela en
+  // vez de esconder el error.
+  useEffect(() => {
+    if (paymentError) setAdvancedOpen(true);
+  }, [paymentError, setAdvancedOpen]);
 
   function upd<K extends keyof ReceiverProfile>(k: K, v: ReceiverProfile[K]) {
     const next = { ...receiver, [k]: v };
@@ -1485,67 +1597,94 @@ function StepReview(props: StepReviewProps) {
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Datos del comprobante
         </p>
-        <div className="space-y-2.5">
-          <div className="grid grid-cols-2 gap-2">
-            <Mini label="Tipo de comprobante">
-              <select
-                value={cfdiType}
-                onChange={(e) => setCfdiType(e.target.value)}
-                className="ff-mini"
-              >
-                {CFDI_TYPES.map((t) => (
-                  <option key={t.code} value={t.code}>
-                    {t.code} — {t.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-            <Mini label="Exportación">
-              <select
-                value={exportCode}
-                onChange={(e) => setExportCode(e.target.value)}
-                className="ff-mini"
-              >
-                {EXPORT_CODES.map((e2) => (
-                  <option key={e2.code} value={e2.code}>
-                    {e2.code} — {e2.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <Mini label="Moneda">
-              <select
-                value={currency}
-                onChange={(e) => {
-                  setCurrency(e.target.value);
-                  if (e.target.value === "MXN") setExchangeRate(1);
-                }}
-                className="ff-mini"
-              >
-                {CURRENCIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.code}
-                  </option>
-                ))}
-              </select>
-            </Mini>
-            {currency !== "MXN" && (
-              <Mini label={`T. cambio ${currency}→MXN`}>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.0001"
-                  value={exchangeRate}
-                  onChange={(e) => setExchangeRate(Number(e.target.value))}
-                  onFocus={(e) => e.target.select()}
-                  className="ff-mini font-mono"
-                />
+
+        <Mini
+          label="Forma de pago"
+          error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
+        >
+          <select
+            value={paymentForm}
+            onChange={(e) => setPaymentForm(e.target.value)}
+            className="ff-mini"
+          >
+            {PAYMENT_FORMS.map((f) => (
+              <option key={f.code} value={f.code}>
+                {f.code} — {f.name}
+              </option>
+            ))}
+          </select>
+        </Mini>
+
+        <button
+          type="button"
+          onClick={() => setAdvancedOpen(!advancedOpen)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary"
+        >
+          <Pencil className="size-3" />{" "}
+          {advancedOpen ? "Ocultar opciones avanzadas" : "Opciones avanzadas"}
+        </button>
+
+        {advancedOpen && (
+          <div className="mt-3 space-y-2.5 border-t border-border pt-3">
+            <div className="grid grid-cols-2 gap-2">
+              <Mini label="Tipo de comprobante">
+                <select
+                  value={cfdiType}
+                  onChange={(e) => setCfdiType(e.target.value)}
+                  className="ff-mini"
+                >
+                  {CFDI_TYPES.map((t) => (
+                    <option key={t.code} value={t.code}>
+                      {t.code} — {t.name}
+                    </option>
+                  ))}
+                </select>
               </Mini>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+              <Mini label="Exportación">
+                <select
+                  value={exportCode}
+                  onChange={(e) => setExportCode(e.target.value)}
+                  className="ff-mini"
+                >
+                  {EXPORT_CODES.map((e2) => (
+                    <option key={e2.code} value={e2.code}>
+                      {e2.code} — {e2.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Mini label="Moneda">
+                <select
+                  value={currency}
+                  onChange={(e) => {
+                    setCurrency(e.target.value);
+                    if (e.target.value === "MXN") setExchangeRate(1);
+                  }}
+                  className="ff-mini"
+                >
+                  {CURRENCIES.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              {currency !== "MXN" && (
+                <Mini label={`T. cambio ${currency}→MXN`}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.0001"
+                    value={exchangeRate}
+                    onChange={(e) => setExchangeRate(Number(e.target.value))}
+                    onFocus={(e) => e.target.select()}
+                    className="ff-mini font-mono"
+                  />
+                </Mini>
+              )}
+            </div>
             <Mini
               label="Método"
               error={paymentError && paymentMethod === "PPD" ? paymentError : undefined}
@@ -1562,24 +1701,21 @@ function StepReview(props: StepReviewProps) {
                 ))}
               </select>
             </Mini>
-            <Mini
-              label="Forma de pago"
-              error={paymentError && paymentMethod !== "PPD" ? paymentError : undefined}
-            >
-              <select
-                value={paymentForm}
-                onChange={(e) => setPaymentForm(e.target.value)}
-                className="ff-mini"
-              >
-                {PAYMENT_FORMS.map((f) => (
-                  <option key={f.code} value={f.code}>
-                    {f.code} — {f.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
+
+            <label className="mt-1 flex items-center gap-2 rounded-xl bg-primary-soft/60 px-3 py-2 text-[11px]">
+              <input
+                type="checkbox"
+                checked={saveAsDefault}
+                onChange={(e) => setSaveAsDefault(e.target.checked)}
+                className="size-4 accent-[var(--primary)]"
+              />
+              <span>
+                <Save className="mr-1 inline size-3 -mt-0.5" />
+                Guardar como mi valor por defecto de facturación
+              </span>
+            </label>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Conceptos + totales */}
