@@ -19,6 +19,7 @@ import {
 } from "../_shared/facturama/errors.ts";
 import { resolveTaxTreatment } from "../_shared/tax/withholding.ts";
 import { notify } from "../_shared/notify.ts";
+import { resolveClientEmail, sendInvoiceEmailAndRecord } from "../_shared/invoice-email.ts";
 
 const allowedOrigin = Deno.env.get("APP_URL") ?? "https://factio.lovable.app";
 const cors = {
@@ -699,7 +700,7 @@ async function loadInvoiceContext(
     supabase
       .from("clients")
       .select(
-        "id, user_id, legal_name, rfc, tax_regime, postal_code, cfdi_use, is_technology_platform",
+        "id, user_id, legal_name, rfc, tax_regime, postal_code, cfdi_use, is_technology_platform, email",
       )
       .eq("id", invoice.client_id)
       .eq("user_id", user.id)
@@ -880,6 +881,35 @@ Deno.serve(async (req) => {
     const folioLabel = stampedInvoice
       ? `${stampedInvoice.series}-${String(stampedInvoice.folio).padStart(6, "0")}`
       : null;
+
+    // Copia por correo, best-effort: el CFDI ya está timbrado y es válido
+    // ante el SAT en este punto — un fallo aquí (o la ausencia de correo del
+    // cliente, un caso esperado) nunca debe afectar la respuesta de éxito
+    // del timbrado. sendInvoiceEmailAndRecord nunca lanza, pero se envuelve
+    // en try/catch de todos modos como defensa adicional.
+    const snapshot =
+      context.invoice.client_snapshot && typeof context.invoice.client_snapshot === "object"
+        ? (context.invoice.client_snapshot as Record<string, unknown>)
+        : null;
+    const clientEmail = resolveClientEmail(context.client.email as string | null, snapshot);
+    if (clientEmail && folioLabel) {
+      try {
+        await sendInvoiceEmailAndRecord(supabase, {
+          invoiceId,
+          folioLabel,
+          total: Number(context.invoice.total),
+          currency: asText(context.invoice.currency) ?? "MXN",
+          companyName: asText(context.company.legal_name) ?? "Factio",
+          clientName: asText(snapshot?.legal_name) ?? asText(context.client.legal_name) ?? "",
+          clientEmail,
+          xmlPath,
+          pdfPath,
+        });
+      } catch (emailError) {
+        console.error("Unable to send invoice email", { invoiceId, error: emailError });
+      }
+    }
+
     await notify(supabase, {
       user_id: user.id,
       kind: "invoice_stamped",

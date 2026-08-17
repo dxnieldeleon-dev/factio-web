@@ -445,6 +445,8 @@ export type Database = {
           currency: string;
           discount: number;
           duplicated_from_invoice_id: string | null;
+          email_last_error: string | null;
+          email_sent_at: string | null;
           exchange_rate: number;
           exportation: string;
           facturama_id: string | null;
@@ -498,6 +500,8 @@ export type Database = {
           currency?: string;
           discount?: number;
           duplicated_from_invoice_id?: string | null;
+          email_last_error?: string | null;
+          email_sent_at?: string | null;
           exchange_rate?: number;
           exportation?: string;
           facturama_id?: string | null;
@@ -551,6 +555,8 @@ export type Database = {
           currency?: string;
           discount?: number;
           duplicated_from_invoice_id?: string | null;
+          email_last_error?: string | null;
+          email_sent_at?: string | null;
           exchange_rate?: number;
           exportation?: string;
           facturama_id?: string | null;
@@ -1184,6 +1190,10 @@ export type Database = {
       };
       mark_cfdi_stamp_reconciliation_required: {
         Args: { p_error: string; p_invoice_id: string; p_pac_response?: Json };
+        Returns: undefined;
+      };
+      record_invoice_email_delivery: {
+        Args: { p_error?: string; p_invoice_id: string; p_sent: boolean };
         Returns: undefined;
       };
       release_cfdi_stamp_claim: {

@@ -46,6 +46,13 @@ de pago (Stripe) que recarga un "monedero de timbres" mensual.
    - llama a Facturama, descarga XML/PDF y los guarda en Storage privado,
    - finaliza la factura y descuenta el timbre en una sola transacción
      (`finalize_cfdi_stamp`).
+   - si el cliente tiene correo capturado, envía automáticamente una copia
+     del CFDI (PDF y XML adjuntos) vía Resend (`_shared/invoice-email.ts`,
+     usado también por la Edge Function `send-invoice-email` para el
+     reenvío manual desde el detalle de factura). Es *best-effort*: un
+     fallo de envío nunca revierte ni bloquea el timbrado ya confirmado,
+     solo se registra en `invoices.email_last_error`
+     (`invoices.email_sent_at` marca el último envío exitoso).
 5. **Cancelación**: `facturama-cancel-cfdi` solicita la cancelación ante
    Facturama con el motivo SAT correspondiente; la factura solo pasa a
    `cancelled` si el PAC confirma.
@@ -103,3 +110,8 @@ de pago (Stripe) que recarga un "monedero de timbres" mensual.
   implementadas.
 - No hay un proceso automático (cron) que dispare la reconciliación de
   timbrados; hoy es manual desde la app.
+- El envío de correo (Resend) no reintenta automáticamente ante un fallo —
+  el usuario debe reenviar manualmente desde el detalle de factura. No hay
+  plantillas configurables (un solo template fijo) ni tracking de
+  apertura/clics, y solo cubre el timbrado exitoso (no cancelación ni
+  conciliación).
