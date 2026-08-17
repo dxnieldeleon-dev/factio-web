@@ -29,6 +29,16 @@ const cors = {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// RFC genérico nacional (venta a público en general) — mirrors
+// RFC_GENERIC_NATIONAL in src/lib/fiscal.ts. Duplicated instead of shared
+// because Edge Functions only import from ../_shared, never from src/.
+const GENERIC_NATIONAL_RFC = "XAXX010101000";
+// c_Periodicidad del SAT admitidas por Factio. "05" (Bimestral) queda fuera
+// a propósito: es exclusiva de contribuyentes bajo un régimen de
+// tributación bimestral (antes RIF), un caso que Factio no modela hoy.
+const GLOBAL_PERIODICITIES = new Set(["01", "02", "03", "04"]);
+const GLOBAL_MONTHS_PATTERN = /^(0[1-9]|1[0-2])$/;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -77,6 +87,11 @@ type FacturamaCfdiPayload = {
     CfdiUse: string;
     FiscalRegime: string;
     TaxZipCode: string;
+  };
+  GlobalInformation?: {
+    Periodicity: string;
+    Months: string;
+    Year: number;
   };
   Items: Array<{
     ProductCode: string;
@@ -384,6 +399,47 @@ async function buildCfdiPayload(
     );
   }
 
+  // Factura Global (venta a público en general): agrega el nodo
+  // GlobalInformation solo cuando la factura fue creada como tal — el resto
+  // del payload es idéntico a una factura normal. Se revalida todo aquí
+  // (nunca se confía en lo que ya validó el CHECK de la BD o el cliente):
+  // el receptor debe ser exactamente el RFC genérico nacional con régimen
+  // 616 y uso S01, y los tres campos de periodicidad deben venir completos
+  // y dentro del catálogo soportado.
+  let globalInformation: FacturamaCfdiPayload["GlobalInformation"];
+  if (context.invoice.is_global === true) {
+    if (receiverRfc !== GENERIC_NATIONAL_RFC || cfdiUse !== "S01" || receiverRegime !== "616") {
+      return json(
+        {
+          ok: false,
+          reason:
+            "Una factura global debe emitirse al RFC genérico XAXX010101000, régimen 616 y uso S01.",
+        },
+        400,
+      );
+    }
+
+    const globalPeriodicity = asText(context.invoice.global_periodicity);
+    const globalMonths = asText(context.invoice.global_months);
+    const globalYear = asNumber(context.invoice.global_year);
+    if (
+      !globalPeriodicity ||
+      !GLOBAL_PERIODICITIES.has(globalPeriodicity) ||
+      !globalMonths ||
+      !GLOBAL_MONTHS_PATTERN.test(globalMonths) ||
+      globalYear === null ||
+      globalYear < 2000 ||
+      globalYear > 2100
+    ) {
+      return json(
+        { ok: false, reason: "Los datos de periodicidad de la factura global no son válidos." },
+        400,
+      );
+    }
+
+    globalInformation = { Periodicity: globalPeriodicity, Months: globalMonths, Year: globalYear };
+  }
+
   return {
     Currency: currency,
     ...(currency === "MXN" ? {} : { CurrencyExchangeRate: exchangeRate }),
@@ -402,6 +458,7 @@ async function buildCfdiPayload(
       FiscalRegime: receiverRegime,
       TaxZipCode: receiverPostalCode,
     },
+    ...(globalInformation ? { GlobalInformation: globalInformation } : {}),
     Items: items,
   };
 }
@@ -613,7 +670,7 @@ async function loadInvoiceContext(
   const { data: invoice, error: invoiceError } = await supabase
     .from("invoices")
     .select(
-      "id, user_id, company_id, client_id, client_snapshot, series, folio, status, payment_method, payment_form, cfdi_use, currency, exchange_rate, subtotal, discount, iva_total, isr_retencion_total, iva_retencion_total, retentions_total, total, notes",
+      "id, user_id, company_id, client_id, client_snapshot, series, folio, status, payment_method, payment_form, cfdi_use, currency, exchange_rate, subtotal, discount, iva_total, isr_retencion_total, iva_retencion_total, retentions_total, total, notes, is_global, global_periodicity, global_months, global_year",
     )
     .eq("id", invoiceId)
     .eq("user_id", user.id)

@@ -19,6 +19,7 @@ import {
   Save,
   Package,
   Folder,
+  Users,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getEdgeFunctionErrorMessage } from "@/lib/edge-function-errors";
@@ -37,12 +38,14 @@ import {
   CFDI_TYPES,
   TAX_REGIMES,
   cfdiUsesForRegime,
+  type SatItem,
 } from "@/lib/sat-catalogs";
 import {
   normalizeFiscalName,
   validateReceiverProfile,
   validatePayment,
   hasErrors,
+  RFC_GENERIC_NATIONAL,
   type FieldErrors,
   type ReceiverProfile,
 } from "@/lib/fiscal";
@@ -103,6 +106,35 @@ type Step = 1 | 2 | 3 | 4;
 // restarting the invoice from scratch.
 const DRAFT_KEY = "factio.invoiceDraft.v1";
 
+// c_Periodicidad del SAT para el nodo GlobalInformation (factura global a
+// público en general). "05" (Bimestral) se omite a propósito: esa
+// periodicidad es exclusiva de contribuyentes bajo un régimen de
+// tributación bimestral (antes RIF), un caso que Factio no modela hoy —
+// ver también el CHECK de 20260817000000_factura_global.sql.
+const GLOBAL_PERIODICITIES: SatItem[] = [
+  { code: "01", name: "Diario" },
+  { code: "02", name: "Semanal" },
+  { code: "03", name: "Quincenal" },
+  { code: "04", name: "Mensual" },
+];
+
+// c_Meses del SAT, solo meses individuales (01-12) — los rangos bimestrales
+// (13-18) no aplican porque no se ofrece periodicidad Bimestral.
+const GLOBAL_MONTHS: SatItem[] = [
+  { code: "01", name: "Enero" },
+  { code: "02", name: "Febrero" },
+  { code: "03", name: "Marzo" },
+  { code: "04", name: "Abril" },
+  { code: "05", name: "Mayo" },
+  { code: "06", name: "Junio" },
+  { code: "07", name: "Julio" },
+  { code: "08", name: "Agosto" },
+  { code: "09", name: "Septiembre" },
+  { code: "10", name: "Octubre" },
+  { code: "11", name: "Noviembre" },
+  { code: "12", name: "Diciembre" },
+];
+
 // Mirrors toMoney in supabase/functions/facturama-create-cfdi/index.ts —
 // the server recomputes totals per item and rejects a mismatch, so the
 // preview has to round the same way to avoid a false 409 on submit.
@@ -157,6 +189,15 @@ function NewInvoice() {
   // Perfil receptor editable para ESTA factura (arranca desde el cliente).
   const [receiver, setReceiver] = useState<ReceiverProfile | null>(null);
   const [saveReceiverEdits, setSaveReceiverEdits] = useState(false);
+
+  // Factura Global (venta a público en general): solo aplica cuando el
+  // cliente es el sintético XAXX010101000 elegido desde el Paso 1.
+  const [isGlobal, setIsGlobal] = useState(false);
+  const [globalPeriodicity, setGlobalPeriodicity] = useState("04");
+  const [globalMonths, setGlobalMonths] = useState(
+    String(new Date().getMonth() + 1).padStart(2, "0"),
+  );
+  const [globalYear, setGlobalYear] = useState(new Date().getFullYear());
 
   // Datos fiscales del comprobante — arrancan con los defaults "de siempre"
   // (Ingreso/PUE/Transferencia/MXN) y se sobreescriben una sola vez si el
@@ -272,7 +313,7 @@ function NewInvoice() {
 
   const paymentError = validatePayment(paymentMethod, paymentForm);
 
-  function pickClient(c: ClientRow) {
+  function pickClient(c: ClientRow, global = false) {
     setClient(c);
     setReceiver({
       rfc: c.rfc,
@@ -282,7 +323,63 @@ function NewInvoice() {
       cfdi_use: c.cfdi_use ?? "G03",
     });
     setSaveReceiverEdits(false);
+    setIsGlobal(global);
     setStep(2);
+  }
+
+  const [findingPublicoGeneral, setFindingPublicoGeneral] = useState(false);
+
+  // "Venta a público en general": encuentra o crea el cliente sintético de
+  // RFC genérico nacional (nunca se agrega vía migración/seed — cada cuenta
+  // lo obtiene la primera vez que lo necesita, con RLS por user_id como en
+  // cualquier otro cliente).
+  async function pickPublicoGeneral() {
+    setFindingPublicoGeneral(true);
+    try {
+      const { data: u, error: userError } = await supabase.auth.getUser();
+      if (userError || !u.user)
+        throw new Error("Tu sesión no es válida. Inicia sesión nuevamente.");
+
+      const clientSelect =
+        "id, legal_name, rfc, tax_regime, postal_code, cfdi_use, email, phone, is_technology_platform, business_category";
+      const { data: existing, error: findError } = await supabase
+        .from("clients")
+        .select(clientSelect)
+        .eq("user_id", u.user.id)
+        .eq("rfc", RFC_GENERIC_NATIONAL)
+        .maybeSingle();
+      if (findError) throw findError;
+
+      let row = existing as ClientRow | null;
+      if (!row) {
+        const { data: created, error: createError } = await supabase
+          .from("clients")
+          .insert({
+            user_id: u.user.id,
+            rfc: RFC_GENERIC_NATIONAL,
+            legal_name: "PUBLICO EN GENERAL",
+            tax_regime: "616",
+            postal_code: issuer?.postal_code ?? null,
+            cfdi_use: "S01",
+          })
+          .select(clientSelect)
+          .single();
+        if (createError) throw createError;
+        row = created as ClientRow;
+      }
+
+      setGlobalPeriodicity(issuer?.default_global_periodicity ?? "04");
+      const now = new Date();
+      setGlobalMonths(String(now.getMonth() + 1).padStart(2, "0"));
+      setGlobalYear(now.getFullYear());
+      pickClient(row, true);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "No pudimos preparar la venta a público en general",
+      );
+    } finally {
+      setFindingPublicoGeneral(false);
+    }
   }
 
   // Resumes the wizard after creating a client or product mid-flow: those
@@ -421,6 +518,10 @@ function NewInvoice() {
           // Assigned atomically by the database trigger.
           folio: 0,
           status: "draft",
+          is_global: isGlobal,
+          global_periodicity: isGlobal ? globalPeriodicity : null,
+          global_months: isGlobal ? globalMonths : null,
+          global_year: isGlobal ? globalYear : null,
           payment_method: paymentMethod,
           payment_form: paymentForm,
           cfdi_use: receiver.cfdi_use,
@@ -611,7 +712,13 @@ function NewInvoice() {
       </div>
 
       <div className="mt-6">
-        {step === 1 && <StepClient onPick={pickClient} />}
+        {step === 1 && (
+          <StepClient
+            onPick={pickClient}
+            onPickPublicoGeneral={pickPublicoGeneral}
+            findingPublicoGeneral={findingPublicoGeneral}
+          />
+        )}
         {step === 2 && (
           <StepItems
             items={items}
@@ -632,6 +739,13 @@ function NewInvoice() {
             receiverErrors={receiverErrors}
             saveReceiverEdits={saveReceiverEdits}
             setSaveReceiverEdits={setSaveReceiverEdits}
+            isGlobal={isGlobal}
+            globalPeriodicity={globalPeriodicity}
+            setGlobalPeriodicity={setGlobalPeriodicity}
+            globalMonths={globalMonths}
+            setGlobalMonths={setGlobalMonths}
+            globalYear={globalYear}
+            setGlobalYear={setGlobalYear}
             items={items}
             totals={totals}
             cfdiType={cfdiType}
@@ -670,7 +784,15 @@ function NewInvoice() {
 }
 
 /* -------- Step 1: Client -------- */
-function StepClient({ onPick }: { onPick: (c: ClientRow) => void }) {
+function StepClient({
+  onPick,
+  onPickPublicoGeneral,
+  findingPublicoGeneral,
+}: {
+  onPick: (c: ClientRow) => void;
+  onPickPublicoGeneral: () => void;
+  findingPublicoGeneral: boolean;
+}) {
   const [q, setQ] = useState("");
   const { data, isLoading } = useQuery({
     queryKey: ["clients", "picker"],
@@ -711,6 +833,27 @@ function StepClient({ onPick }: { onPick: (c: ClientRow) => void }) {
       >
         <Plus className="size-4" /> Crear nuevo cliente
       </a>
+      <button
+        type="button"
+        onClick={onPickPublicoGeneral}
+        disabled={findingPublicoGeneral}
+        className="mt-2 flex w-full items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-3 text-left transition active:scale-[0.99] disabled:opacity-60"
+      >
+        <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-primary">
+          {findingPublicoGeneral ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Users className="size-4" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold">Venta a público en general</p>
+          <p className="text-xs text-muted-foreground">
+            Factura global, sin datos fiscales del cliente
+          </p>
+        </div>
+        <ArrowRight className="size-4 text-muted-foreground" />
+      </button>
       <div className="mt-4">
         {isLoading ? (
           <div className="space-y-3">
@@ -1150,6 +1293,13 @@ type StepReviewProps = {
   receiverErrors: FieldErrors;
   saveReceiverEdits: boolean;
   setSaveReceiverEdits: (v: boolean) => void;
+  isGlobal: boolean;
+  globalPeriodicity: string;
+  setGlobalPeriodicity: (v: string) => void;
+  globalMonths: string;
+  setGlobalMonths: (v: string) => void;
+  globalYear: number;
+  setGlobalYear: (v: number) => void;
   items: LineItem[];
   totals: {
     subtotal: number;
@@ -1189,6 +1339,13 @@ function StepReview(props: StepReviewProps) {
     receiverErrors,
     saveReceiverEdits,
     setSaveReceiverEdits,
+    isGlobal,
+    globalPeriodicity,
+    setGlobalPeriodicity,
+    globalMonths,
+    setGlobalMonths,
+    globalYear,
+    setGlobalYear,
     items,
     totals,
     cfdiType,
@@ -1213,6 +1370,7 @@ function StepReview(props: StepReviewProps) {
   } = props;
 
   const [editReceiver, setEditReceiver] = useState(false);
+  const [editGlobal, setEditGlobal] = useState(false);
   const receiverBlocking = hasErrors(receiverErrors);
   const allowedUses = useMemo(() => cfdiUsesForRegime(receiver.tax_regime), [receiver.tax_regime]);
   const isEditedFromClient =
@@ -1358,6 +1516,81 @@ function StepReview(props: StepReviewProps) {
           </div>
         )}
       </div>
+
+      {/* Factura Global: periodicidad/mes/año */}
+      {isGlobal && (
+        <div className="rounded-2xl border border-border bg-surface p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Factura global
+              </p>
+              <p className="mt-1 font-semibold">Periodicidad, mes y año</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEditGlobal((v) => !v)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <Pencil className="size-3" /> {editGlobal ? "Ocultar" : "Editar"}
+            </button>
+          </div>
+
+          {!editGlobal && (
+            <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
+              <MiniStat
+                label="Periodicidad"
+                value={GLOBAL_PERIODICITIES.find((p) => p.code === globalPeriodicity)?.name ?? "—"}
+              />
+              <MiniStat
+                label="Mes"
+                value={GLOBAL_MONTHS.find((m) => m.code === globalMonths)?.name ?? "—"}
+              />
+              <MiniStat label="Año" value={String(globalYear)} />
+            </div>
+          )}
+
+          {editGlobal && (
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <Mini label="Periodicidad">
+                <select
+                  value={globalPeriodicity}
+                  onChange={(e) => setGlobalPeriodicity(e.target.value)}
+                  className="ff-mini"
+                >
+                  {GLOBAL_PERIODICITIES.map((p) => (
+                    <option key={p.code} value={p.code}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              <Mini label="Mes">
+                <select
+                  value={globalMonths}
+                  onChange={(e) => setGlobalMonths(e.target.value)}
+                  className="ff-mini"
+                >
+                  {GLOBAL_MONTHS.map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </Mini>
+              <Mini label="Año">
+                <input
+                  type="number"
+                  value={globalYear}
+                  onChange={(e) => setGlobalYear(Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  className="ff-mini font-mono"
+                />
+              </Mini>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Datos del comprobante */}
       <div className="rounded-2xl border border-border bg-surface p-4">
