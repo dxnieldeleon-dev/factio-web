@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Building2,
   ChevronRight,
+  FileBarChart,
   KeyRound,
   Loader2,
   LogOut,
@@ -223,6 +224,12 @@ function Profile() {
           title="Valores por defecto de facturación"
           subtitle="Precarga el tipo de comprobante, método y forma de pago"
         />
+        <ProfileLink
+          to="/reports"
+          icon={FileBarChart}
+          title="Reportes y exportación"
+          subtitle="Resumen mensual y CSV para tu contador"
+        />
       </section>
 
       <section className="mt-8 space-y-3">
@@ -424,7 +431,7 @@ function ProfileLink({
   subtitle,
   badge,
 }: {
-  to: "/profile/fiscal" | "/profile/csd" | "/profile/invoicing" | "/settings";
+  to: "/profile/fiscal" | "/profile/csd" | "/profile/invoicing" | "/reports" | "/settings";
   icon: typeof Settings;
   title: string;
   subtitle: string;
