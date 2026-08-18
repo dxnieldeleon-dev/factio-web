@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Plus,
   AlertTriangle,
+  Clock,
   Loader2,
   Trash2,
   CopyPlus,
@@ -40,12 +41,32 @@ async function loadInvoices() {
   const { data, error } = await supabase
     .from("invoices")
     .select(
-      "id, series, folio, total, status, created_at, uuid_fiscal, client_snapshot, xml_url, pdf_url, stamping_status, stamping_error",
+      "id, series, folio, total, status, created_at, uuid_fiscal, client_snapshot, xml_url, pdf_url, stamping_status, stamping_error, cancellation_status, cancellation_requested_at",
     )
     .order("created_at", { ascending: false })
     .limit(200);
   if (error) throw error;
   return data ?? [];
+}
+
+// Mismo cálculo que _shared/cancellation-check.ts (businessHoursElapsed) —
+// aquí solo es una vista previa client-side para decidir qué texto mostrar
+// antes de que el usuario pulse "Verificar estado"; la respuesta del
+// servidor (contra Facturama) sigue siendo la única fuente de verdad.
+const HOUR_MS = 3_600_000;
+const CANCELLATION_ACCEPTANCE_DEADLINE_HOURS = 72;
+function businessHoursElapsed(from: Date, to: Date): number {
+  if (to.getTime() <= from.getTime()) return 0;
+  let hours = 0;
+  let cursor = from.getTime();
+  const end = to.getTime();
+  while (cursor < end) {
+    const next = Math.min(end, cursor + HOUR_MS);
+    const day = new Date(cursor).getUTCDay();
+    if (day !== 0 && day !== 6) hours += (next - cursor) / HOUR_MS;
+    cursor = next;
+  }
+  return hours;
 }
 
 type StatusFilter = "all" | "issued" | "cancelled";
@@ -72,9 +93,11 @@ function History() {
   });
 
   const pending = (data ?? []).filter((i) => i.stamping_status === "reconciliation_required");
+  const cancellationPending = (data ?? []).filter((i) => i.cancellation_status === "pending");
 
   const filtered = (data ?? [])
     .filter((i) => i.stamping_status !== "reconciliation_required")
+    .filter((i) => i.cancellation_status !== "pending")
     .filter((i) => {
       if (status !== "all" && i.status !== status) return false;
       if (!q) return true;
@@ -100,6 +123,11 @@ function History() {
   }
 
   function refreshAfterReconciliation() {
+    qc.invalidateQueries({ queryKey: ["invoices", "history"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+  }
+
+  function refreshAfterCancellationCheck() {
     qc.invalidateQueries({ queryKey: ["invoices", "history"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
   }
@@ -154,6 +182,22 @@ function History() {
               invoice={invoice}
               onResolved={refreshAfterReconciliation}
               isAdmin={!!isAdmin}
+            />
+          ))}
+        </section>
+      )}
+
+      {cancellationPending.length > 0 && (
+        <section className="mt-5 space-y-2">
+          <h2 className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-800">
+            <Clock className="size-3.5" /> Cancelaciones pendientes de aceptación (
+            {cancellationPending.length})
+          </h2>
+          {cancellationPending.map((invoice) => (
+            <CancellationPendingCard
+              key={invoice.id}
+              invoice={invoice as unknown as PendingCancellationInvoice}
+              onResolved={refreshAfterCancellationCheck}
             />
           ))}
         </section>
@@ -469,6 +513,90 @@ function ReconciliationCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+interface PendingCancellationInvoice {
+  id: string;
+  series: string;
+  folio: number;
+  total: number;
+  client_snapshot: { legal_name?: string; rfc?: string } | null;
+  cancellation_requested_at: string | null;
+}
+
+function CancellationPendingCard({
+  invoice,
+  onResolved,
+}: {
+  invoice: PendingCancellationInvoice;
+  onResolved: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const folioFmt = `${invoice.series}-${String(invoice.folio).padStart(6, "0")}`;
+  const snap = invoice.client_snapshot ?? {};
+  const requestedAt = invoice.cancellation_requested_at
+    ? new Date(invoice.cancellation_requested_at)
+    : null;
+  const hoursElapsed = requestedAt ? businessHoursElapsed(requestedAt, new Date()) : 0;
+  const overdue = hoursElapsed >= CANCELLATION_ACCEPTANCE_DEADLINE_HOURS;
+
+  async function verify() {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("facturama-check-cancellation", {
+        body: { invoice_id: invoice.id },
+      });
+      if (error) {
+        throw new Error(
+          await getEdgeFunctionErrorMessage(error, "No fue posible verificar el estado."),
+        );
+      }
+      if (!data?.ok) throw new Error(data?.reason ?? "No fue posible verificar el estado.");
+      if (data.resolved && data.cancelled) {
+        toast.success("El receptor aceptó la cancelación: factura cancelada.");
+        onResolved();
+      } else if (data.overdue) {
+        toast.info("El plazo esperado ya venció; revisa el Buzón Tributario del SAT.");
+      } else {
+        toast.info("El receptor aún no responde. Sigue pendiente.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No pudimos verificar el estado");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-mono text-xs font-semibold uppercase tracking-tight">{folioFmt}</p>
+          <p className="mt-0.5 truncate text-sm font-semibold">{snap.legal_name ?? "Cliente"}</p>
+        </div>
+        <p className="shrink-0 text-sm font-bold">{formatMXN(invoice.total)}</p>
+      </div>
+      <p className="mt-2 text-xs leading-relaxed text-amber-900/80">
+        {requestedAt
+          ? `Cancelación solicitada el ${formatDateMX(invoice.cancellation_requested_at!)}, pendiente de aceptación del receptor.`
+          : "Pendiente de aceptación del receptor."}
+      </p>
+      {overdue && (
+        <p className="mt-1 text-xs font-semibold text-amber-900">
+          Ya venció el plazo esperado de 72 horas hábiles. Confirma el estado directamente en el
+          Buzón Tributario del SAT — no se puede dar por cancelada solo por el paso del tiempo.
+        </p>
+      )}
+      <button
+        type="button"
+        disabled={busy}
+        onClick={verify}
+        className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-900 px-3 py-1.5 text-[11px] font-semibold text-amber-50 disabled:opacity-60"
+      >
+        {busy ? <Loader2 className="size-3 animate-spin" /> : null} Verificar estado
+      </button>
     </div>
   );
 }

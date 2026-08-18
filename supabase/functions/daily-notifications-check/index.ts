@@ -11,6 +11,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { notify, type NotificationKind } from "../_shared/notify.ts";
+import { checkCancellationAcceptance } from "../_shared/cancellation-check.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -317,6 +318,66 @@ async function checkCancellationDeadline(): Promise<number> {
   return sent;
 }
 
+// Cancelaciones pendientes de aceptación del receptor (cancellation_status =
+// 'pending') cuyo plazo esperado de 72 horas hábiles ya venció y el CFDI
+// sigue vigente ante Facturama — usa la misma verificación que el botón
+// manual "Verificar estado" (_shared/cancellation-check.ts), pero con
+// canFinalize=false: un cliente service_role no tiene sesión de usuario real,
+// así que no puede finalizar una cancelación aunque Facturama ya la confirme
+// (ver comentario en checkCancellationAcceptance) — eso solo ocurre cuando
+// el propio usuario verifica manualmente. Aquí solo se notifica el
+// vencimiento del plazo, una vez por factura.
+async function checkCancellationAcceptanceOverdue(): Promise<number> {
+  const { data: invoices, error } = await admin
+    .from("invoices")
+    .select(
+      "id, user_id, series, folio, cancellation_reason, cancellation_replacement_uuid, cancellation_requested_at, pac_response",
+    )
+    .eq("cancellation_status", "pending")
+    .not("cancellation_requested_at", "is", null);
+  if (error) {
+    console.error(
+      "daily-notifications-check: fallo consultando cancelaciones pendientes",
+      error.message,
+    );
+    return 0;
+  }
+  if (!invoices?.length) return 0;
+
+  let sent = 0;
+  for (const invoice of invoices) {
+    const outcome = await checkCancellationAcceptance(admin, invoice, { canFinalize: false });
+    if (!outcome.ok) {
+      console.error("daily-notifications-check: fallo verificando cancelación pendiente", {
+        invoiceId: invoice.id,
+        reason: outcome.reason,
+      });
+      continue;
+    }
+    if (outcome.resolved || !outcome.overdue) continue;
+
+    const alreadySent = await hasRecentNotification({
+      userId: invoice.user_id,
+      kind: "cancellation_acceptance_overdue",
+      windowHours: 20,
+      metadataMatch: { invoice_id: invoice.id },
+    });
+    if (alreadySent) continue;
+
+    const folioLabel = `${invoice.series}-${String(invoice.folio).padStart(6, "0")}`;
+    await notify(admin, {
+      user_id: invoice.user_id,
+      kind: "cancellation_acceptance_overdue",
+      title: `Venció el plazo de aceptación para la factura ${folioLabel}`,
+      body: "El receptor no respondió dentro del plazo esperado de 72 horas hábiles. Verifica el estado directamente en el Buzón Tributario del SAT — Factio solo puede reflejar lo que reporte el proveedor de timbrado.",
+      link: "/history",
+      metadata: { invoice_id: invoice.id },
+    });
+    sent++;
+  }
+  return sent;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ ok: false, reason: "Método no permitido." }, 405);
@@ -326,26 +387,27 @@ Deno.serve(async (req: Request) => {
   // acepta ningún JWT de usuario (aunque sea válido) ni ningún parámetro del
   // body — este job no es configurable por quien lo invoque.
   const authHeader = req.headers.get("authorization") ?? req.headers.get("Authorization");
-  const token = authHeader?.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : null;
+  const token = authHeader?.toLowerCase().startsWith("bearer ") ? authHeader.slice(7).trim() : null;
   if (token !== serviceRoleKey) {
     return json({ ok: false, reason: "No autorizado." }, 401);
   }
 
   try {
-    const [csdExpiring, onboardingIncomplete, inactivity, cancelDeadline] = await Promise.all([
-      checkCsdExpiring(),
-      checkOnboardingIncomplete(),
-      checkInactivity(),
-      checkCancellationDeadline(),
-    ]);
+    const [csdExpiring, onboardingIncomplete, inactivity, cancelDeadline, cancelAcceptanceOverdue] =
+      await Promise.all([
+        checkCsdExpiring(),
+        checkOnboardingIncomplete(),
+        checkInactivity(),
+        checkCancellationDeadline(),
+        checkCancellationAcceptanceOverdue(),
+      ]);
 
     const summary = {
       csd_expiring: csdExpiring,
       onboarding_incomplete: onboardingIncomplete,
       inactivity_reminder: inactivity,
       cfdi_cancel_deadline: cancelDeadline,
+      cancellation_acceptance_overdue: cancelAcceptanceOverdue,
     };
     console.log("daily-notifications-check: resumen", summary);
     return json({ ok: true, summary });
