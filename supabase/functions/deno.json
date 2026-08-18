@@ -1,0 +1,14 @@
+{
+  "test": {
+    "include": ["**/*.test.ts"]
+  },
+  "lint": {
+    "rules": {
+      // Todas las Edge Functions de este proyecto ya importan directo por
+      // URL (https://esm.sh/..., jsr:...) sin import map — convención
+      // preexistente en todo supabase/functions/, no algo que este cambio
+      // (solo de cobertura de tests) deba reescribir.
+      "exclude": ["no-import-prefix", "no-unversioned-import"]
+    }
+  }
+}
