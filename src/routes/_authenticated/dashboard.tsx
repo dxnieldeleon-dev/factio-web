@@ -171,6 +171,17 @@ function Dashboard() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["dashboard"], queryFn: loadDashboard });
+  const { data: hasUnreadNotifications } = useQuery({
+    queryKey: ["notifications", "unread"],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .is("read_at", null);
+      if (error) throw error;
+      return (count ?? 0) > 0;
+    },
+  });
   const [csdDismissed, setCsdDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("ff.csdBannerDismissed") === "1";
@@ -215,10 +226,14 @@ function Dashboard() {
         <div className="flex items-center gap-2">
           <button
             type="button"
+            onClick={() => navigate({ to: "/notifications" })}
             className="relative grid size-10 place-items-center rounded-full border border-border bg-surface transition active:scale-95"
             aria-label="Notificaciones"
           >
             <Bell className="size-[18px]" strokeWidth={1.8} />
+            {hasUnreadNotifications && (
+              <span className="absolute right-2 top-2 size-2 rounded-full bg-destructive ring-2 ring-surface" />
+            )}
           </button>
           <button
             type="button"
