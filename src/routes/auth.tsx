@@ -29,6 +29,8 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (modeParam && modeParam !== mode) setMode(modeParam);
@@ -44,6 +46,7 @@ function AuthPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
+    setUnconfirmedEmail(null);
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
@@ -60,9 +63,36 @@ function AuthPage() {
         navigate({ to: "/dashboard", replace: true });
       }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos iniciar sesión");
+      // Supabase devuelve este error tal cual en inglés ("Email not
+      // confirmed") cuando la cuenta existe pero nunca se confirmó el
+      // correo del registro — se traduce y se ofrece reenviar el enlace en
+      // vez de mostrar el mensaje crudo del proveedor de auth.
+      const isUnconfirmed =
+        err instanceof Error &&
+        (err.message === "Email not confirmed" ||
+          ("code" in err && (err as { code?: string }).code === "email_not_confirmed"));
+      if (isUnconfirmed) {
+        setUnconfirmedEmail(email);
+        toast.error("Tu correo aún no está confirmado. Revisa tu bandeja de entrada.");
+      } else {
+        toast.error(err instanceof Error ? err.message : "No pudimos iniciar sesión");
+      }
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function onResendConfirmation() {
+    if (!unconfirmedEmail) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({ type: "signup", email: unconfirmedEmail });
+      if (error) throw error;
+      toast.success(`Te reenviamos el enlace de confirmación a ${unconfirmedEmail}.`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No pudimos reenviar el correo");
+    } finally {
+      setResending(false);
     }
   }
 
@@ -99,6 +129,7 @@ function AuthPage() {
   function goToMode(next: "signin" | "signup" | "forgot") {
     setMode(next);
     setResetSent(false);
+    setUnconfirmedEmail(null);
     navigate({ to: "/auth", search: { mode: next }, replace: true });
   }
 
@@ -200,11 +231,34 @@ function AuthPage() {
             required
             autoComplete="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setUnconfirmedEmail(null);
+            }}
             placeholder="tu@correo.com"
             className="w-full rounded-2xl border border-input bg-surface py-3.5 pl-11 pr-4 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-ring"
           />
         </div>
+
+        {unconfirmedEmail && (
+          <div className="rounded-2xl border border-amber-300/60 bg-amber-50 p-4 text-amber-900">
+            <p className="text-sm font-semibold">Tu correo aún no está confirmado</p>
+            <p className="mt-1 text-xs leading-relaxed text-amber-900/80">
+              Te enviamos un enlace de confirmación a {unconfirmedEmail} cuando creaste la cuenta.
+              Revisa tu bandeja de entrada (y spam) o pide que te lo reenviemos.
+            </p>
+            <button
+              type="button"
+              disabled={resending}
+              onClick={onResendConfirmation}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-900 px-3 py-1.5 text-[11px] font-semibold text-amber-50 disabled:opacity-60"
+            >
+              {resending ? <Loader2 className="size-3 animate-spin" /> : null} Reenviar correo de
+              confirmación
+            </button>
+          </div>
+        )}
+
         <div className="relative">
           <Lock className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
