@@ -9,25 +9,44 @@ export const Route = createFileRoute("/_authenticated/settings")({
 });
 
 interface Prefs {
-  notifications_enabled: boolean;
   biometrics_enabled: boolean;
   pin_enabled: boolean;
   theme: string;
 }
 
+// notify() (_shared/notify.ts) decide si envía una notificación leyendo
+// settings.notification_preferences por categoría — settings.notifications_enabled
+// (un booleano simple, sin efecto real desde el backend) queda sin usar a
+// propósito; no se elimina de la tabla por si algo más la lee, pero esta
+// pantalla ya no es su fuente de verdad.
+const NOTIFICATION_CATEGORIES = ["billing", "invoicing", "csd", "stamps"] as const;
+type NotificationCategory = (typeof NOTIFICATION_CATEGORIES)[number];
+type NotificationPreferences = Partial<Record<NotificationCategory, boolean>>;
+
+function allNotificationsEnabled(preferences: NotificationPreferences | null | undefined): boolean {
+  return NOTIFICATION_CATEGORIES.every((category) => preferences?.[category] !== false);
+}
+
 function SettingsPage() {
   const [prefs, setPrefs] = useState<Prefs | null>(null);
+  const [notificationsOn, setNotificationsOn] = useState(true);
 
   useEffect(() => {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
-      const { data } = await supabase.from("settings").select("*").eq("user_id", u.user!.id).maybeSingle();
+      const { data } = await supabase
+        .from("settings")
+        .select("*")
+        .eq("user_id", u.user!.id)
+        .maybeSingle();
       setPrefs({
-        notifications_enabled: data?.notifications_enabled ?? true,
         biometrics_enabled: data?.biometrics_enabled ?? false,
         pin_enabled: data?.pin_enabled ?? false,
         theme: data?.theme ?? "light",
       });
+      setNotificationsOn(
+        allNotificationsEnabled(data?.notification_preferences as NotificationPreferences | null),
+      );
     })();
   }, []);
 
@@ -37,7 +56,22 @@ function SettingsPage() {
     setPrefs(next);
     const { data: u } = await supabase.auth.getUser();
     const { error } = await supabase.from("settings").upsert({ user_id: u.user!.id, ...next });
-    if (error) toast.error("No pudimos guardar"); else toast.success("Preferencias actualizadas");
+    if (error) toast.error("No pudimos guardar");
+    else toast.success("Preferencias actualizadas");
+  }
+
+  async function toggleNotifications() {
+    const next = !notificationsOn;
+    setNotificationsOn(next);
+    const preferences = Object.fromEntries(
+      NOTIFICATION_CATEGORIES.map((category) => [category, next]),
+    ) as Record<NotificationCategory, boolean>;
+    const { data: u } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from("settings")
+      .upsert({ user_id: u.user!.id, notification_preferences: preferences });
+    if (error) toast.error("No pudimos guardar");
+    else toast.success("Preferencias actualizadas");
   }
 
   async function setTheme(theme: "light" | "dark") {
@@ -51,7 +85,10 @@ function SettingsPage() {
   return (
     <div className="px-5 pt-[max(env(safe-area-inset-top),2.5rem)] pb-6">
       <header className="flex items-center gap-3">
-        <Link to="/profile" className="grid size-10 place-items-center rounded-full border border-border bg-surface">
+        <Link
+          to="/profile"
+          className="grid size-10 place-items-center rounded-full border border-border bg-surface"
+        >
           <ArrowLeft className="size-4" />
         </Link>
         <h1 className="text-xl font-bold tracking-tight">Configuración</h1>
@@ -62,8 +99,8 @@ function SettingsPage() {
           icon={Bell}
           title="Notificaciones"
           subtitle="Recibir alertas de timbrado y vencimientos"
-          checked={prefs?.notifications_enabled ?? true}
-          onToggle={() => toggle("notifications_enabled")}
+          checked={notificationsOn}
+          onToggle={toggleNotifications}
         />
         <Row
           icon={Moon}
@@ -94,10 +131,21 @@ function SettingsPage() {
 }
 
 function Row({
-  icon: Icon, title, subtitle, checked, onToggle, disabled, comingSoon,
+  icon: Icon,
+  title,
+  subtitle,
+  checked,
+  onToggle,
+  disabled,
+  comingSoon,
 }: {
-  icon: typeof Bell; title: string; subtitle: string; checked: boolean;
-  onToggle?: () => void; disabled?: boolean; comingSoon?: boolean;
+  icon: typeof Bell;
+  title: string;
+  subtitle: string;
+  checked: boolean;
+  onToggle?: () => void;
+  disabled?: boolean;
+  comingSoon?: boolean;
 }) {
   return (
     <button
@@ -123,8 +171,12 @@ function Row({
         <p className="text-xs text-muted-foreground">{subtitle}</p>
       </div>
       {!disabled && (
-        <span className={`relative inline-block h-6 w-10 rounded-full transition ${checked ? "bg-primary" : "bg-muted"}`}>
-          <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition ${checked ? "left-[18px]" : "left-0.5"}`} />
+        <span
+          className={`relative inline-block h-6 w-10 rounded-full transition ${checked ? "bg-primary" : "bg-muted"}`}
+        >
+          <span
+            className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition ${checked ? "left-[18px]" : "left-0.5"}`}
+          />
         </span>
       )}
     </button>
