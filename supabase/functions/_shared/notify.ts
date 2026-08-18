@@ -25,7 +25,12 @@ export type NotificationKind =
   | "csd_expiring_7"
   | "onboarding_incomplete"
   | "inactivity_reminder"
-  | "cfdi_cancel_deadline";
+  | "cfdi_cancel_deadline"
+  // Distinto de cfdi_cancel_deadline (ese es el plazo anual de declaración
+  // para poder cancelar en absoluto): este avisa que venció el plazo de 72
+  // horas hábiles esperado para que el receptor acepte/rechace una
+  // cancelación ya solicitada — ver _shared/cancellation-check.ts.
+  | "cancellation_acceptance_overdue";
 
 type NotificationCategory = "billing" | "invoicing" | "stamps" | "csd";
 
@@ -45,6 +50,7 @@ const CATEGORY_BY_KIND: Record<NotificationKind, NotificationCategory> = {
   onboarding_incomplete: "invoicing",
   inactivity_reminder: "invoicing",
   cfdi_cancel_deadline: "invoicing",
+  cancellation_acceptance_overdue: "invoicing",
 };
 
 export interface NotifyParams {

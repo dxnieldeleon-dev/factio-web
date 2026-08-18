@@ -15,6 +15,9 @@ verify_jwt = true
 [functions.send-invoice-email]
 verify_jwt = true
 
+[functions.facturama-check-cancellation]
+verify_jwt = true
+
 [functions.create-checkout-session]
 verify_jwt = true
 

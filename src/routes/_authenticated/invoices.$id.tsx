@@ -113,6 +113,7 @@ function InvoiceDetail() {
   const [cancelling, setCancelling] = useState(false);
   const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [verifyingCancellation, setVerifyingCancellation] = useState(false);
   const [stamping, setStamping] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -194,6 +195,41 @@ function InvoiceDetail() {
       toast.error(err instanceof Error ? err.message : "No pudimos enviar el correo");
     } finally {
       setSendingEmail(false);
+    }
+  }
+
+  async function verifyCancellation() {
+    if (!data) return;
+    setVerifyingCancellation(true);
+    try {
+      const { data: response, error } = await supabase.functions.invoke(
+        "facturama-check-cancellation",
+        { body: { invoice_id: data.invoice.id } },
+      );
+      if (error) {
+        throw new Error(
+          await getEdgeFunctionErrorMessage(error, "No fue posible verificar el estado."),
+        );
+      }
+      if (!response?.ok) {
+        throw new Error(response?.reason ?? "No fue posible verificar el estado.");
+      }
+      if (response.resolved && response.cancelled) {
+        toast.success("El receptor aceptó la cancelación: factura cancelada.");
+        qc.invalidateQueries({ queryKey: ["invoices", "history"] });
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+        await refetch();
+      } else if (response.overdue) {
+        toast.info(
+          "El plazo esperado ya venció; confirma el estado en el Buzón Tributario del SAT.",
+        );
+      } else {
+        toast.info("El receptor aún no responde. Sigue pendiente.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No pudimos verificar el estado");
+    } finally {
+      setVerifyingCancellation(false);
     }
   }
 
@@ -467,9 +503,20 @@ function InvoiceDetail() {
           <p className="mt-2 text-xs text-destructive">Motivo: {inv.cancellation_reason}</p>
         )}
         {cancellationPending && (
-          <p className="mt-2 text-xs text-amber-700">
-            Solicitud de cancelación enviada al SAT; pendiente de aceptación.
-          </p>
+          <>
+            <p className="mt-2 text-xs text-amber-700">
+              Solicitud de cancelación enviada al SAT; pendiente de aceptación.
+            </p>
+            <button
+              type="button"
+              onClick={verifyCancellation}
+              disabled={verifyingCancellation}
+              className="mt-2 inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-100 px-3 py-1.5 text-[11px] font-semibold text-amber-900 disabled:opacity-60"
+            >
+              {verifyingCancellation ? <Loader2 className="size-3 animate-spin" /> : null} Verificar
+              estado
+            </button>
+          </>
         )}
         {inv.uuid_fiscal && (
           <div className="mt-3 flex items-center gap-2 border-t border-border pt-3">
