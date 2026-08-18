@@ -6,8 +6,10 @@
 // create a duplicate CFDI against the SAT.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { documentBase64, downloadCfdi, getCfdi, getCfdiUuid } from "../_shared/facturama/client.ts";
-import { isFacturamaError, userFacingPacMessage } from "../_shared/facturama/errors.ts";
+import {
+  completeReconciliationFromCfdiId,
+  extractFacturamaCfdiId,
+} from "../_shared/facturama/reconciliation.ts";
 
 const allowedOrigin = Deno.env.get("APP_URL") ?? "https://factio.lovable.app";
 const cors = {
@@ -60,35 +62,6 @@ async function authenticateRequest(req: Request): Promise<AuthenticatedUser | Re
   return { id: user.id, accessToken };
 }
 
-function base64ToBytes(value: string): Uint8Array {
-  const binary = atob(value.replace(/\s/g, ""));
-  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
-}
-
-function cfdiDocumentPath(userId: string, invoiceId: string, extension: "xml" | "pdf") {
-  return `${userId}/${invoiceId}.${extension}`;
-}
-
-async function storeCfdiDocument(
-  user: AuthenticatedUser,
-  invoiceId: string,
-  extension: "xml" | "pdf",
-  contentBase64: string,
-): Promise<string | { error: string }> {
-  const supabase = userClient(user);
-  const path = cfdiDocumentPath(user.id, invoiceId, extension);
-  const { error } = await supabase.storage
-    .from("cfdi-documents")
-    .upload(path, base64ToBytes(contentBase64), {
-      contentType: extension === "xml" ? "application/xml" : "application/pdf",
-      upsert: true,
-    });
-  if (error) {
-    return { error: `No fue posible guardar el ${extension.toUpperCase()} del CFDI: ${error.message}` };
-  }
-  return path;
-}
-
 type PendingInvoice = {
   id: string;
   series: string;
@@ -115,10 +88,7 @@ async function listPending(user: AuthenticatedUser) {
     ok: true,
     invoices: invoices.map((invoice) => ({
       ...invoice,
-      facturama_cfdi_id:
-        (invoice.pac_response?.facturama_cfdi_id as string | undefined) ??
-        (invoice.pac_response?.create as Record<string, unknown> | undefined)?.["Id"] ??
-        null,
+      facturama_cfdi_id: extractFacturamaCfdiId(invoice.pac_response),
     })),
   });
 }
@@ -132,81 +102,23 @@ async function completeFromCfdiId(
   cfdiId: string,
 ): Promise<Response> {
   const supabase = userClient(user);
-  let detail;
-  try {
-    detail = await getCfdi(cfdiId);
-  } catch (error) {
-    if (isFacturamaError(error) && error.status === 404) {
-      return json(
-        {
-          ok: false,
-          reason:
-            "No hay registro de ese CFDI ante el proveedor de timbrado. Si confirmaste que nunca se generó, usa confirm_not_stamped.",
-        },
-        404,
-      );
-    }
-    const message = isFacturamaError(error)
-      ? userFacingPacMessage(error, "Ocurrió un problema técnico al consultar el comprobante. Intenta de nuevo en unos minutos.")
-      : "No fue posible consultar el comprobante.";
-    return json({ ok: false, reason: message }, 502);
-  }
-
-  const uuid = getCfdiUuid(detail);
-  if (!uuid) {
-    return json({ ok: false, reason: "No se recibió el UUID fiscal de ese CFDI." }, 502);
-  }
-
-  let xmlPath: string;
-  let pdfPath: string;
-  try {
-    const [xmlResponse, pdfResponse] = await Promise.all([
-      downloadCfdi(cfdiId, "xml"),
-      downloadCfdi(cfdiId, "pdf"),
-    ]);
-    const [xmlResult, pdfResult] = await Promise.all([
-      storeCfdiDocument(user, invoiceId, "xml", documentBase64(xmlResponse)),
-      storeCfdiDocument(user, invoiceId, "pdf", documentBase64(pdfResponse)),
-    ]);
-    if (typeof xmlResult !== "string") return json({ ok: false, reason: xmlResult.error }, 502);
-    if (typeof pdfResult !== "string") return json({ ok: false, reason: pdfResult.error }, 502);
-    xmlPath = xmlResult;
-    pdfPath = pdfResult;
-  } catch (error) {
-    const message = isFacturamaError(error)
-      ? userFacingPacMessage(error, "Ocurrió un problema técnico al descargar los documentos del CFDI. Intenta de nuevo en unos minutos.")
-      : "No fue posible descargar los documentos del CFDI.";
-    return json({ ok: false, reason: message }, 502);
-  }
-
-  const { data: walletResult, error: finalizeError } = await supabase.rpc(
+  const result = await completeReconciliationFromCfdiId(
+    supabase,
+    user.id,
+    invoiceId,
+    cfdiId,
     "finalize_cfdi_stamp_reconciliation",
-    {
-      p_invoice_id: invoiceId,
-      p_uuid_fiscal: uuid,
-      p_xml_url: xmlPath,
-      p_pdf_url: pdfPath,
-      p_pac_response: { detail, facturama_cfdi_id: cfdiId, reconciled: true },
-    },
   );
-  if (finalizeError) {
-    return json(
-      {
-        ok: false,
-        reason: `El CFDI se recuperó del proveedor de timbrado, pero no se pudo finalizar su registro: ${finalizeError.message}`,
-      },
-      409,
-    );
-  }
+  if (!result.ok) return json({ ok: false, reason: result.reason }, result.status);
 
   return json({
     ok: true,
     resolved: true,
-    invoice_id: invoiceId,
-    uuid,
-    xml_url: xmlPath,
-    pdf_url: pdfPath,
-    remaining_stamps: walletResult?.[0]?.balance ?? null,
+    invoice_id: result.invoiceId,
+    uuid: result.uuid,
+    xml_url: result.xmlPath,
+    pdf_url: result.pdfPath,
+    remaining_stamps: result.balance,
   });
 }
 
@@ -254,9 +166,7 @@ Deno.serve(async (req) => {
     if (!invoice) return json({ ok: false, reason: "La factura no está en conciliación." }, 404);
 
     const pacResponse = (invoice.pac_response ?? null) as Record<string, unknown> | null;
-    const cfdiId =
-      (pacResponse?.facturama_cfdi_id as string | undefined) ??
-      ((pacResponse?.create as Record<string, unknown> | undefined)?.["Id"] as string | undefined);
+    const cfdiId = extractFacturamaCfdiId(pacResponse);
     if (!cfdiId) {
       return json(
         {
@@ -273,7 +183,10 @@ Deno.serve(async (req) => {
   if (action === "confirm_stamped") {
     const cfdiId = payload?.facturama_cfdi_id;
     if (typeof cfdiId !== "string" || !cfdiId.trim()) {
-      return json({ ok: false, reason: "facturama_cfdi_id es obligatorio para confirm_stamped." }, 400);
+      return json(
+        { ok: false, reason: "facturama_cfdi_id es obligatorio para confirm_stamped." },
+        400,
+      );
     }
     return completeFromCfdiId(user, invoiceId, cfdiId.trim());
   }

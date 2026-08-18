@@ -12,6 +12,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { notify, type NotificationKind } from "../_shared/notify.ts";
 import { checkCancellationAcceptance } from "../_shared/cancellation-check.ts";
+import {
+  completeReconciliationFromCfdiId,
+  extractFacturamaCfdiId,
+} from "../_shared/facturama/reconciliation.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -378,6 +382,88 @@ async function checkCancellationAcceptanceOverdue(): Promise<number> {
   return sent;
 }
 
+// Facturas atoradas en stamping_status = 'reconciliation_required' porque
+// facturama-create-cfdi no pudo confirmar si el timbrado llegó a completarse
+// (falla de red, 5xx, o una falla posterior a que Facturama ya devolviera un
+// CFDI id). Reutiliza la misma lógica que el botón manual "Resolver
+// automáticamente" del Historial (_shared/facturama/reconciliation.ts), pero
+// con el cliente service_role y finalize_cfdi_stamp_reconciliation_auto (la
+// variante sin filtro user_id = auth.uid(), inutilizable aquí porque
+// auth.uid() siempre es NULL bajo la llave service_role). Nunca genera una
+// resolución confirm_not_stamped por su cuenta — cuando no puede recuperar
+// un facturama_cfdi_id, o la recuperación falla, solo notifica para revisión
+// manual, reutilizando el kind invoice_stamp_error existente.
+async function checkStampReconciliation(): Promise<number> {
+  const { data: invoices, error } = await admin
+    .from("invoices")
+    .select("id, user_id, series, folio, pac_response")
+    .eq("status", "draft")
+    .eq("stamping_status", "reconciliation_required");
+  if (error) {
+    console.error(
+      "daily-notifications-check: fallo consultando facturas en conciliación",
+      error.message,
+    );
+    return 0;
+  }
+  if (!invoices?.length) return 0;
+
+  let sent = 0;
+  for (const invoice of invoices) {
+    const folioLabel = `${invoice.series}-${String(invoice.folio).padStart(6, "0")}`;
+    const pacResponse = (invoice.pac_response ?? null) as Record<string, unknown> | null;
+    const cfdiId = extractFacturamaCfdiId(pacResponse);
+
+    if (cfdiId) {
+      const result = await completeReconciliationFromCfdiId(
+        admin,
+        invoice.user_id,
+        invoice.id,
+        cfdiId,
+        "finalize_cfdi_stamp_reconciliation_auto",
+      );
+      if (result.ok) {
+        await notify(admin, {
+          user_id: invoice.user_id,
+          kind: "invoice_stamped",
+          title: `Factura ${folioLabel} timbrada`,
+          body: "Se confirmó y completó el timbrado de este comprobante, que había quedado pendiente de conciliación.",
+          link: `/invoices/${invoice.id}`,
+          metadata: { invoice_id: invoice.id, uuid: result.uuid },
+        });
+        sent++;
+        continue;
+      }
+      console.error("daily-notifications-check: no se pudo auto-resolver la conciliación", {
+        invoiceId: invoice.id,
+        reason: result.reason,
+      });
+    }
+
+    // No recuperable (sin facturama_cfdi_id) o la recuperación falló: nunca
+    // se asume "no se generó" por cuenta propia — eso siempre requiere
+    // confirmarlo manualmente contra el proveedor de timbrado.
+    const alreadySent = await hasRecentNotification({
+      userId: invoice.user_id,
+      kind: "invoice_stamp_error",
+      windowHours: 20,
+      metadataMatch: { invoice_id: invoice.id },
+    });
+    if (alreadySent) continue;
+
+    await notify(admin, {
+      user_id: invoice.user_id,
+      kind: "invoice_stamp_error",
+      title: `Factura ${folioLabel} pendiente de conciliación de timbrado`,
+      body: "No fue posible confirmar automáticamente el estado de este comprobante ante el proveedor de timbrado. Revísalo manualmente desde tu Historial.",
+      link: "/history",
+      metadata: { invoice_id: invoice.id },
+    });
+    sent++;
+  }
+  return sent;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") {
     return json({ ok: false, reason: "Método no permitido." }, 405);
@@ -393,14 +479,21 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const [csdExpiring, onboardingIncomplete, inactivity, cancelDeadline, cancelAcceptanceOverdue] =
-      await Promise.all([
-        checkCsdExpiring(),
-        checkOnboardingIncomplete(),
-        checkInactivity(),
-        checkCancellationDeadline(),
-        checkCancellationAcceptanceOverdue(),
-      ]);
+    const [
+      csdExpiring,
+      onboardingIncomplete,
+      inactivity,
+      cancelDeadline,
+      cancelAcceptanceOverdue,
+      stampReconciliation,
+    ] = await Promise.all([
+      checkCsdExpiring(),
+      checkOnboardingIncomplete(),
+      checkInactivity(),
+      checkCancellationDeadline(),
+      checkCancellationAcceptanceOverdue(),
+      checkStampReconciliation(),
+    ]);
 
     const summary = {
       csd_expiring: csdExpiring,
@@ -408,6 +501,7 @@ Deno.serve(async (req: Request) => {
       inactivity_reminder: inactivity,
       cfdi_cancel_deadline: cancelDeadline,
       cancellation_acceptance_overdue: cancelAcceptanceOverdue,
+      stamp_reconciliation: stampReconciliation,
     };
     console.log("daily-notifications-check: resumen", summary);
     return json({ ok: true, summary });
