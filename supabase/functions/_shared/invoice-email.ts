@@ -123,6 +123,15 @@ export async function sendInvoiceEmailAndRecord(
         ? error.message
         : "No fue posible enviar el correo.";
 
+    console.error("Unable to send invoice email", {
+      invoiceId: input.invoiceId,
+      error: isResendError(error)
+        ? { status: error.status, message: error.message, body: error.body }
+        : error instanceof Error
+          ? { message: error.message, stack: error.stack }
+          : String(error),
+    });
+
     try {
       await supabase.rpc("record_invoice_email_delivery", {
         p_invoice_id: input.invoiceId,
