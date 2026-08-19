@@ -78,24 +78,33 @@ function Landing() {
             ))}
           </nav>
 
-          <Link
-            to="/auth"
-            search={{ mode: "signup" }}
-            className="hidden items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 md:inline-flex"
-          >
-            Comenzar
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              to="/auth"
+              search={{ mode: "signin" }}
+              className="hidden text-sm font-semibold text-foreground transition hover:text-primary md:inline-flex"
+            >
+              Iniciar sesión
+            </Link>
+            <Link
+              to="/auth"
+              search={{ mode: "signup" }}
+              className="hidden items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 md:inline-flex"
+            >
+              Comenzar
+            </Link>
 
-          <button
-            type="button"
-            onClick={() => setMobileNavOpen((v) => !v)}
-            aria-expanded={mobileNavOpen}
-            aria-controls="mobile-nav"
-            aria-label={mobileNavOpen ? "Cerrar menú" : "Abrir menú"}
-            className="grid size-10 place-items-center rounded-full border border-border bg-surface md:hidden"
-          >
-            {mobileNavOpen ? <X className="size-4" /> : <Menu className="size-4" />}
-          </button>
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen((v) => !v)}
+              aria-expanded={mobileNavOpen}
+              aria-controls="mobile-nav"
+              aria-label={mobileNavOpen ? "Cerrar menú" : "Abrir menú"}
+              className="grid size-10 place-items-center rounded-full border border-border bg-surface md:hidden"
+            >
+              {mobileNavOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+            </button>
+          </div>
         </div>
 
         {mobileNavOpen && (
@@ -113,6 +122,14 @@ function Landing() {
                 {link.label}
               </a>
             ))}
+            <Link
+              to="/auth"
+              search={{ mode: "signin" }}
+              onClick={() => setMobileNavOpen(false)}
+              className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
+            >
+              Iniciar sesión
+            </Link>
             <Link
               to="/auth"
               search={{ mode: "signup" }}
