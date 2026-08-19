@@ -9,6 +9,7 @@ import {
   Loader2,
   LogOut,
   Mail,
+  ReceiptText,
   Settings,
   ShieldCheck,
   SlidersHorizontal,
@@ -285,10 +286,17 @@ function Profile() {
                 Se te acabaron los timbres de este mes. Sube de plan para seguir facturando.
               </div>
             )}
+            <Link
+              to="/profile/receipts"
+              className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-foreground"
+            >
+              <ReceiptText className="size-3.5" />
+              Historial de cobros
+            </Link>
             <button
               type="button"
               onClick={() => setShowPlans((visible) => !visible)}
-              className="mt-3 w-full rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-foreground"
+              className="mt-2 w-full rounded-xl border border-border bg-background py-2.5 text-xs font-semibold text-foreground"
             >
               {showPlans ? "Ocultar planes" : "Ver otros planes"}
             </button>
