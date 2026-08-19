@@ -2,6 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@17";
 import { notify } from "../_shared/notify.ts";
+import {
+  buildSubscriptionEventPayload,
+  subscriptionEventForBillingReason,
+} from "../_shared/billing/subscription-events.ts";
+import { triggerEvent } from "../_shared/resend/events.ts";
 
 const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY")!;
 const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
@@ -201,7 +206,7 @@ async function grantForInvoice(invoice: Stripe.Invoice) {
   const priceId = invoice.lines.data[0]?.price?.id;
   const plan = priceId ? await getPlanByPriceId(priceId) : null;
   const facturasIncluidas = plan?.facturas_incluidas;
-  if (!facturasIncluidas) {
+  if (!plan || !facturasIncluidas) {
     // Sin este log, este caso quedaba en silencio total: la función
     // regresaba 200 (Stripe nunca reintenta un 200), así que un pago real
     // sin plan resoluble se traducía en cero timbres otorgados y nada en
@@ -247,6 +252,88 @@ async function grantForInvoice(invoice: Stripe.Invoice) {
   // Stripe redelivered the same event, not a new payment. Treat as success.
   if (grantError && grantError.code !== UNIQUE_VIOLATION) {
     throw new Error(`Insert de grant_renovacion falló: ${grantError.message}`);
+  }
+
+  // Solo se dispara el correo de suscripción (activated/renewed) en el
+  // otorgamiento genuinamente nuevo — nunca en una redelivery de Stripe del
+  // mismo invoice, o el cliente recibiría el mismo correo de confirmación
+  // dos veces.
+  if (!grantError) {
+    await dispatchSubscriptionEvent(subRow.company_id, invoice, plan);
+  }
+}
+
+// Dispara subscription.activated/subscription.renewed a la API de eventos de
+// Resend (plantillas y automatizaciones ya configuradas del lado de Resend,
+// ver _shared/resend/events.ts) y deja un registro durable en
+// billing_receipts para que receipt_url apunte a una página real de la app.
+// Nunca debe bloquear el registro del pago: el timbre ya se otorgó antes de
+// llamar esta función, así que cualquier falla aquí (Resend caído, correo
+// del usuario no resoluble, etc.) solo se registra en logs.
+async function dispatchSubscriptionEvent(
+  companyId: string,
+  invoice: Stripe.Invoice,
+  plan: { nombre: string; facturas_incluidas: number },
+) {
+  const eventName = subscriptionEventForBillingReason(invoice.billing_reason);
+  if (!eventName) return;
+
+  try {
+    const line = invoice.lines.data[0];
+    const periodStart = new Date((line?.period?.start ?? invoice.created) * 1000);
+    const periodEnd = new Date((line?.period?.end ?? invoice.created) * 1000);
+    const kind = eventName === "subscription.activated" ? "activation" : "renewal";
+
+    const { data: receipt, error: receiptError } = await admin
+      .from("billing_receipts")
+      .insert({
+        company_id: companyId,
+        stripe_invoice_id: invoice.id,
+        kind,
+        plan_name: plan.nombre,
+        cfdi_limit: plan.facturas_incluidas,
+        amount_cents: invoice.amount_paid,
+        currency: invoice.currency,
+        period_start: periodStart.toISOString(),
+        period_end: periodEnd.toISOString(),
+      })
+      .select("id")
+      .single();
+    if (receiptError) {
+      // Mismo criterio que grant_renovacion arriba: un unique_violation en
+      // stripe_invoice_id significa que este invoice ya se procesó antes.
+      if (receiptError.code === UNIQUE_VIOLATION) return;
+      throw new Error(`Insert de billing_receipts falló: ${receiptError.message}`);
+    }
+
+    const userId = await resolveUserIdForCompany(companyId);
+    if (!userId) return;
+    const { data: userData, error: userError } = await admin.auth.admin.getUserById(userId);
+    if (userError || !userData.user?.email) {
+      console.error(
+        "stripe-webhook: no se pudo resolver el correo para el evento de suscripción",
+        { userId, error: userError?.message },
+      );
+      return;
+    }
+
+    const appUrl = Deno.env.get("APP_URL") ?? "https://factio.lovable.app";
+    const payload = buildSubscriptionEventPayload({
+      amountCents: invoice.amount_paid,
+      currency: invoice.currency,
+      planName: plan.nombre,
+      cfdiLimit: plan.facturas_incluidas,
+      periodStart,
+      periodEnd,
+      receiptUrl: `${appUrl}/profile/receipts/${receipt.id}`,
+    });
+
+    await triggerEvent({ event: eventName, email: userData.user.email, payload });
+  } catch (err) {
+    console.error("stripe-webhook: fallo disparando evento de suscripción a Resend", {
+      invoiceId: invoice.id,
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 

@@ -115,6 +115,101 @@ export type Database = {
         };
         Relationships: [];
       };
+      admin_stamp_grants: {
+        Row: {
+          amount: number;
+          company_id: string;
+          created_at: string;
+          granted_by: string;
+          id: string;
+          reason: string;
+          stamp_transaction_id: string;
+        };
+        Insert: {
+          amount: number;
+          company_id: string;
+          created_at?: string;
+          granted_by: string;
+          id?: string;
+          reason: string;
+          stamp_transaction_id: string;
+        };
+        Update: {
+          amount?: number;
+          company_id?: string;
+          created_at?: string;
+          granted_by?: string;
+          id?: string;
+          reason?: string;
+          stamp_transaction_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "admin_stamp_grants_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "admin_stamp_grants_stamp_transaction_id_fkey";
+            columns: ["stamp_transaction_id"];
+            isOneToOne: false;
+            referencedRelation: "stamp_transactions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      billing_receipts: {
+        Row: {
+          amount_cents: number;
+          cfdi_limit: number;
+          company_id: string;
+          created_at: string;
+          currency: string;
+          id: string;
+          kind: string;
+          period_end: string;
+          period_start: string;
+          plan_name: string;
+          stripe_invoice_id: string;
+        };
+        Insert: {
+          amount_cents: number;
+          cfdi_limit: number;
+          company_id: string;
+          created_at?: string;
+          currency: string;
+          id?: string;
+          kind: string;
+          period_end: string;
+          period_start: string;
+          plan_name: string;
+          stripe_invoice_id: string;
+        };
+        Update: {
+          amount_cents?: number;
+          cfdi_limit?: number;
+          company_id?: string;
+          created_at?: string;
+          currency?: string;
+          id?: string;
+          kind?: string;
+          period_end?: string;
+          period_start?: string;
+          plan_name?: string;
+          stripe_invoice_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "billing_receipts_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       clients: {
         Row: {
           business_category: string | null;
@@ -1128,6 +1223,26 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      admin_grant_free_invoices: {
+        Args: { p_amount: number; p_company_id: string; p_reason: string };
+        Returns: Json;
+      };
+      admin_list_companies: {
+        Args: { p_search?: string };
+        Returns: {
+          company_id: string;
+          created_at: string;
+          email: string;
+          legal_name: string;
+          phone: string;
+          plan_key: string;
+          plan_nombre: string;
+          rfc: string;
+          stamp_balance: number;
+          subscription_status: string;
+          trade_name: string;
+        }[];
+      };
       claim_cfdi_stamp: { Args: { p_invoice_id: string }; Returns: boolean };
       consume_invoice_stamp: {
         Args: { p_company_id: string; p_invoice_id: string };
@@ -1159,6 +1274,18 @@ export type Database = {
         }[];
       };
       finalize_cfdi_stamp_reconciliation: {
+        Args: {
+          p_invoice_id: string;
+          p_pac_response: Json;
+          p_pdf_url: string;
+          p_uuid_fiscal: string;
+          p_xml_url: string;
+        };
+        Returns: {
+          balance: number;
+        }[];
+      };
+      finalize_cfdi_stamp_reconciliation_auto: {
         Args: {
           p_invoice_id: string;
           p_pac_response: Json;
