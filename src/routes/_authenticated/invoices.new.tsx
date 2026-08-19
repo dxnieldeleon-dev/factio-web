@@ -1417,33 +1417,45 @@ function StepReview(props: StepReviewProps) {
 
       {/* Receptor */}
       <div className="rounded-2xl border border-border bg-surface p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Receptor
-            </p>
-            <p className="mt-1 truncate font-semibold">{receiver.legal_name || "—"}</p>
-            <p className="font-mono text-xs text-muted-foreground">{receiver.rfc}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditReceiver((v) => !v)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
-          >
-            <Pencil className="size-3" /> {editReceiver ? "Ocultar" : "Editar"}
-          </button>
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Receptor
+        </p>
+        <p className="mt-1 truncate font-semibold">{receiver.legal_name || "—"}</p>
+        <p className="font-mono text-xs text-muted-foreground">{receiver.rfc}</p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px]">
+          <MiniStat label="Régimen" value={receiver.tax_regime ?? "—"} />
+          <MiniStat label="CP" value={receiver.postal_code ?? "—"} />
         </div>
 
-        {!editReceiver && (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-[11px]">
-            <MiniStat label="Régimen" value={receiver.tax_regime ?? "—"} />
-            <MiniStat label="CP" value={receiver.postal_code ?? "—"} />
-            <MiniStat label="Uso CFDI" value={receiver.cfdi_use ?? "—"} />
-          </div>
-        )}
+        <div className="mt-3">
+          <Mini label="Uso CFDI" error={receiverErrors.cfdi_use}>
+            <select
+              value={receiver.cfdi_use ?? ""}
+              onChange={(e) => upd("cfdi_use", e.target.value || null)}
+              className="ff-mini"
+            >
+              <option value="">Selecciona…</option>
+              {(allowedUses.length ? allowedUses : CFDI_USES).map((u) => (
+                <option key={u.code} value={u.code}>
+                  {u.code} — {u.name}
+                </option>
+              ))}
+            </select>
+          </Mini>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setEditReceiver(!editReceiver)}
+          className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-primary"
+        >
+          <Pencil className="size-3" />{" "}
+          {editReceiver ? "Ocultar opciones avanzadas" : "Opciones avanzadas"}
+        </button>
 
         {editReceiver && (
-          <div className="mt-3 space-y-2.5">
+          <div className="mt-3 space-y-2.5 border-t border-border pt-3">
             <Mini
               label="Nombre / razón social (como en la constancia)"
               error={receiverErrors.legal_name}
@@ -1484,20 +1496,6 @@ function StepReview(props: StepReviewProps) {
                 />
               </Mini>
             </div>
-            <Mini label="Uso CFDI (filtrado por régimen)" error={receiverErrors.cfdi_use}>
-              <select
-                value={receiver.cfdi_use ?? ""}
-                onChange={(e) => upd("cfdi_use", e.target.value || null)}
-                className="ff-mini"
-              >
-                <option value="">Selecciona…</option>
-                {(allowedUses.length ? allowedUses : CFDI_USES).map((u) => (
-                  <option key={u.code} value={u.code}>
-                    {u.code} — {u.name}
-                  </option>
-                ))}
-              </select>
-            </Mini>
 
             {isEditedFromClient && (
               <label className="mt-1 flex items-center gap-2 rounded-xl bg-primary-soft/60 px-3 py-2 text-[11px]">

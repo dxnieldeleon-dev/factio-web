@@ -1,6 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Sparkles, ShieldCheck, Zap } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRight, Menu, Sparkles, ShieldCheck, X, Zap } from "lucide-react";
 import factioLogo from "@/assets/factio-logo.png.asset.json";
+
+const NAV_LINKS = [
+  { href: "#funciones", label: "Funciones" },
+  { href: "#como-funciona", label: "Cómo funciona" },
+  { href: "#precios", label: "Precios" },
+  { href: "#preguntas", label: "Preguntas" },
+];
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -23,13 +31,98 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const headerRef = useRef<HTMLElement>(null);
+
+  // Cierra el menú móvil con Escape o al hacer clic fuera del header.
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    }
+    function onClickOutside(e: MouseEvent) {
+      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
+        setMobileNavOpen(false);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("mousedown", onClickOutside);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("mousedown", onClickOutside);
+    };
+  }, [mobileNavOpen]);
+
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <header className="mx-auto flex max-w-5xl items-center justify-between px-5 pt-8">
-        <div className="flex items-center gap-2">
-          <img src={factioLogo.url} alt="Factio" className="size-8 rounded-lg" />
-          <span className="font-semibold tracking-tight">Factio</span>
+      <header
+        ref={headerRef}
+        className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur"
+      >
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
+          <div className="flex items-center gap-2">
+            <img src={factioLogo.url} alt="Factio" className="size-8 rounded-lg" />
+            <span className="font-semibold tracking-tight">Factio</span>
+          </div>
+
+          <nav className="hidden items-center gap-8 md:flex">
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className="text-sm text-muted-foreground transition hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ))}
+          </nav>
+
+          <Link
+            to="/auth"
+            search={{ mode: "signup" }}
+            className="hidden items-center gap-2 rounded-full bg-foreground px-5 py-2.5 text-sm font-semibold text-background transition hover:opacity-90 md:inline-flex"
+          >
+            Comenzar
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((v) => !v)}
+            aria-expanded={mobileNavOpen}
+            aria-controls="mobile-nav"
+            aria-label={mobileNavOpen ? "Cerrar menú" : "Abrir menú"}
+            className="grid size-10 place-items-center rounded-full border border-border bg-surface md:hidden"
+          >
+            {mobileNavOpen ? <X className="size-4" /> : <Menu className="size-4" />}
+          </button>
         </div>
+
+        {mobileNavOpen && (
+          <nav
+            id="mobile-nav"
+            className="flex flex-col gap-1 border-t border-border px-5 pb-5 pt-2 md:hidden"
+          >
+            {NAV_LINKS.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                onClick={() => setMobileNavOpen(false)}
+                className="rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition hover:bg-accent hover:text-foreground"
+              >
+                {link.label}
+              </a>
+            ))}
+            <Link
+              to="/auth"
+              search={{ mode: "signup" }}
+              onClick={() => setMobileNavOpen(false)}
+              className="mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-semibold text-background transition hover:opacity-90"
+            >
+              Comenzar
+            </Link>
+          </nav>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-5 pt-16 pb-24">
