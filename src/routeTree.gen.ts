@@ -32,6 +32,7 @@ import { Route as AuthenticatedProductsIdRouteImport } from './routes/_authentic
 import { Route as AuthenticatedInvoicesNewRouteImport } from './routes/_authenticated/invoices.new'
 import { Route as AuthenticatedInvoicesIdRouteImport } from './routes/_authenticated/invoices.$id'
 import { Route as AuthenticatedClientsNewRouteImport } from './routes/_authenticated/clients.new'
+import { Route as AuthenticatedProfileReceiptsIndexRouteImport } from './routes/_authenticated/profile.receipts.index'
 import { Route as AuthenticatedProfileReceiptsIdRouteImport } from './routes/_authenticated/profile.receipts.$id'
 import { Route as AuthenticatedProductsIdEditRouteImport } from './routes/_authenticated/products.$id_.edit'
 import { Route as AuthenticatedClientsIdEditRouteImport } from './routes/_authenticated/clients.$id.edit'
@@ -158,6 +159,12 @@ const AuthenticatedClientsNewRoute = AuthenticatedClientsNewRouteImport.update({
   path: '/clients/new',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedProfileReceiptsIndexRoute =
+  AuthenticatedProfileReceiptsIndexRouteImport.update({
+    id: '/profile/receipts/',
+    path: '/profile/receipts/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedProfileReceiptsIdRoute =
   AuthenticatedProfileReceiptsIdRouteImport.update({
     id: '/profile/receipts/$id',
@@ -203,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/clients/$id/edit': typeof AuthenticatedClientsIdEditRoute
   '/products/$id/edit': typeof AuthenticatedProductsIdEditRoute
   '/profile/receipts/$id': typeof AuthenticatedProfileReceiptsIdRoute
+  '/profile/receipts/': typeof AuthenticatedProfileReceiptsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -230,6 +238,7 @@ export interface FileRoutesByTo {
   '/clients/$id/edit': typeof AuthenticatedClientsIdEditRoute
   '/products/$id/edit': typeof AuthenticatedProductsIdEditRoute
   '/profile/receipts/$id': typeof AuthenticatedProfileReceiptsIdRoute
+  '/profile/receipts': typeof AuthenticatedProfileReceiptsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -259,6 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/clients/$id/edit': typeof AuthenticatedClientsIdEditRoute
   '/_authenticated/products/$id_/edit': typeof AuthenticatedProductsIdEditRoute
   '/_authenticated/profile/receipts/$id': typeof AuthenticatedProfileReceiptsIdRoute
+  '/_authenticated/profile/receipts/': typeof AuthenticatedProfileReceiptsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -288,6 +298,7 @@ export interface FileRouteTypes {
     | '/clients/$id/edit'
     | '/products/$id/edit'
     | '/profile/receipts/$id'
+    | '/profile/receipts/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -315,6 +326,7 @@ export interface FileRouteTypes {
     | '/clients/$id/edit'
     | '/products/$id/edit'
     | '/profile/receipts/$id'
+    | '/profile/receipts'
   id:
     | '__root__'
     | '/'
@@ -343,6 +355,7 @@ export interface FileRouteTypes {
     | '/_authenticated/clients/$id/edit'
     | '/_authenticated/products/$id_/edit'
     | '/_authenticated/profile/receipts/$id'
+    | '/_authenticated/profile/receipts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -518,6 +531,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedClientsNewRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/profile/receipts/': {
+      id: '/_authenticated/profile/receipts/'
+      path: '/profile/receipts'
+      fullPath: '/profile/receipts/'
+      preLoaderRoute: typeof AuthenticatedProfileReceiptsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/profile/receipts/$id': {
       id: '/_authenticated/profile/receipts/$id'
       path: '/profile/receipts/$id'
@@ -562,6 +582,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedClientsIdEditRoute: typeof AuthenticatedClientsIdEditRoute
   AuthenticatedProductsIdEditRoute: typeof AuthenticatedProductsIdEditRoute
   AuthenticatedProfileReceiptsIdRoute: typeof AuthenticatedProfileReceiptsIdRoute
+  AuthenticatedProfileReceiptsIndexRoute: typeof AuthenticatedProfileReceiptsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -584,6 +605,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedClientsIdEditRoute: AuthenticatedClientsIdEditRoute,
   AuthenticatedProductsIdEditRoute: AuthenticatedProductsIdEditRoute,
   AuthenticatedProfileReceiptsIdRoute: AuthenticatedProfileReceiptsIdRoute,
+  AuthenticatedProfileReceiptsIndexRoute:
+    AuthenticatedProfileReceiptsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
