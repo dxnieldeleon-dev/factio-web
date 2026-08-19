@@ -1,0 +1,13 @@
+-- Splits the ability to grant free/courtesy stamps out of the blanket
+-- 'admin' role. 'admin' keeps full read access to the admin panel
+-- (dashboard metrics, company directory); 'admin_grants' becomes an
+-- additional, separately-assignable permission required only for the
+-- admin_grant_free_invoices() mutation, since that action has a real
+-- monetary cost and shouldn't be implied by read access alone.
+--
+-- This is its own migration, deliberately not combined with the function
+-- update that will use this value: Postgres does not allow a new enum
+-- value added via ALTER TYPE ... ADD VALUE to be referenced in the same
+-- transaction that adds it, and Supabase applies each migration file as
+-- one transaction.
+ALTER TYPE public.app_role ADD VALUE 'admin_grants';
