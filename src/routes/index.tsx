@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ArrowRight, Menu, Sparkles, ShieldCheck, X, Zap } from "lucide-react";
 import factioLogo from "@/assets/factio-logo.png.asset.json";
+import { HeroMockup } from "@/components/hero-mockup";
 
 const NAV_LINKS = [
   { href: "#funciones", label: "Funciones" },
@@ -143,35 +144,41 @@ function Landing() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 pt-16 pb-24">
-        <div className="animate-reveal max-w-3xl">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
-            <Sparkles className="size-3.5" />
-            Hecho para México · CFDI 4.0
-          </span>
-          <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-6xl">
-            Factura en menos de <span className="text-primary">60 segundos</span>.
-          </h1>
-          <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-            La forma más sencilla de emitir CFDI 4.0 desde tu celular. Sin formularios eternos, sin
-            tecnicismos del SAT.
-          </p>
+        <div className="lg:grid lg:grid-cols-2 lg:items-center lg:gap-12">
+          <div className="animate-reveal max-w-3xl">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1 text-xs font-semibold text-primary">
+              <Sparkles className="size-3.5" />
+              Hecho para México · CFDI 4.0
+            </span>
+            <h1 className="mt-5 text-4xl font-bold tracking-tight sm:text-6xl">
+              Factura en menos de <span className="text-primary">60 segundos</span>.
+            </h1>
+            <p className="mt-5 max-w-xl text-lg text-muted-foreground">
+              La forma más sencilla de emitir CFDI 4.0 desde tu celular. Sin formularios eternos,
+              sin tecnicismos del SAT.
+            </p>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              to="/auth"
-              search={{ mode: "signup" }}
-              className="group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background hover:opacity-90 transition"
-            >
-              Empezar gratis
-              <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              to="/auth"
-              search={{ mode: "signin" }}
-              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-semibold hover:bg-accent transition"
-            >
-              Ya tengo cuenta
-            </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                to="/auth"
+                search={{ mode: "signup" }}
+                className="group inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background hover:opacity-90 transition"
+              >
+                Comenzar
+                <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+              </Link>
+              <Link
+                to="/auth"
+                search={{ mode: "signin" }}
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-6 py-3.5 text-sm font-semibold hover:bg-accent transition"
+              >
+                Ya tengo cuenta
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-16 lg:mt-0">
+            <HeroMockup />
           </div>
         </div>
 
