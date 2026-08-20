@@ -8,12 +8,14 @@ import {
   FilePlus2,
   History,
   IdCard,
+  Lock,
   Mail,
   Menu,
   Mic,
   Package,
   RotateCcw,
   Send,
+  ShieldCheck,
   Sparkles,
   Stamp,
   Stethoscope,
@@ -410,6 +412,42 @@ function Landing() {
                 <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section className="mt-24">
+          <div className="rounded-3xl bg-primary-soft p-8 md:p-12">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+                Tu información fiscal, en manos serias
+              </h2>
+            </div>
+
+            <div className="mt-10 grid gap-6 sm:grid-cols-3">
+              {[
+                {
+                  icon: ShieldCheck,
+                  title: "PAC certificado",
+                  body: "Timbramos a través de un Proveedor Autorizado de Certificación reconocido por el SAT.",
+                },
+                {
+                  icon: FileCheck2,
+                  title: "Cumple CFDI 4.0",
+                  body: "Siempre alineado a la normativa vigente.",
+                },
+                {
+                  icon: Lock,
+                  title: "Datos protegidos",
+                  body: "Tu información se resguarda con estándares de seguridad modernos.",
+                },
+              ].map((point) => (
+                <div key={point.title}>
+                  <point.icon className="size-6 text-primary" />
+                  <h3 className="mt-3 font-semibold">{point.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{point.body}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </section>
       </main>
