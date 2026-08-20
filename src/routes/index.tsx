@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import factioLogo from "@/assets/factio-logo.png.asset.json";
 import { HeroMockup } from "@/components/hero-mockup";
+import { PricingCard } from "@/components/pricing-card";
 
 const NAV_LINKS = [
   { href: "#funciones", label: "Funciones" },
@@ -448,6 +449,58 @@ function Landing() {
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        <section id="precios" className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Elige el plan que se ajusta a tu volumen
+            </h2>
+            <p className="mt-3 text-lg text-muted-foreground">
+              Sin permanencia forzosa. Cambia o cancela cuando quieras.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-3">
+            {[
+              {
+                name: "Básico",
+                price: "$99",
+                features: [
+                  "10 facturas incluidas al mes",
+                  "Timbrado CFDI 4.0",
+                  "Envío automático por email",
+                ],
+                ctaLabel: "Elegir Básico",
+              },
+              {
+                name: "Estándar",
+                price: "$149",
+                features: [
+                  "25 facturas incluidas al mes",
+                  "Timbrado CFDI 4.0",
+                  "Envío automático por email",
+                  "Complemento de Pago",
+                ],
+                ctaLabel: "Elegir Estándar",
+                highlighted: true,
+              },
+              {
+                name: "Premium",
+                price: "$199",
+                features: [
+                  "50 facturas incluidas al mes",
+                  "Timbrado CFDI 4.0",
+                  "Envío automático por email",
+                  "Complemento de Pago",
+                  "Carta Porte",
+                ],
+                ctaLabel: "Elegir Premium",
+              },
+            ].map((plan) => (
+              <PricingCard key={plan.name} {...plan} />
+            ))}
           </div>
         </section>
       </main>
