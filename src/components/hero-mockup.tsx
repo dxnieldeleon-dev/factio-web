@@ -1,7 +1,8 @@
-// Placeholder visual del Hero del homepage — simula la pantalla de una
-// factura dentro de un marco de teléfono usando solo HTML/Tailwind y los
-// tokens de color existentes. Pensado para reemplazarse por un screenshot
-// real de la app sin tocar el layout de src/routes/index.tsx.
+// Placeholder visual del Hero del homepage — simula un recibo/comprobante
+// fiscal (borde inferior dentado tipo papel, montos monoespaciados, sello
+// de timbrado) usando solo HTML/Tailwind y los tokens de color existentes.
+// Pensado para reemplazarse por un screenshot real de la app sin tocar el
+// layout de src/routes/index.tsx.
 
 const LINE_ITEMS = [
   { label: "Diseño de logotipo", price: "$2,500" },
@@ -9,47 +10,45 @@ const LINE_ITEMS = [
   { label: "Dominio .mx", price: "$600" },
 ];
 
+// Simula el filo picado de un recibo de papel: una serie de muescas
+// triangulares a lo largo del borde inferior.
+const RECEIPT_CLIP_PATH =
+  "polygon(0% 0%, 100% 0%, 100% 97%, 96% 100%, 92% 97%, 88% 100%, 84% 97%, 80% 100%, 76% 97%, 72% 100%, 68% 97%, 64% 100%, 60% 97%, 56% 100%, 52% 97%, 48% 100%, 44% 97%, 40% 100%, 36% 97%, 32% 100%, 28% 97%, 24% 100%, 20% 97%, 16% 100%, 12% 97%, 8% 100%, 4% 97%, 0% 100%)";
+
 export function HeroMockup() {
   return (
-    <div className="mx-auto w-full max-w-xs">
-      <div className="rounded-[2.5rem] border-[10px] border-foreground/90 bg-foreground/90 p-1.5 shadow-lift">
-        <div className="overflow-hidden rounded-[2rem] bg-surface">
-          <div className="flex justify-center pb-1 pt-3">
-            <div className="h-1.5 w-16 rounded-full bg-border" />
-          </div>
+    <div className="mx-auto w-full max-w-[340px]">
+      <div
+        className="bg-surface px-6 pb-9 pt-7 shadow-lift"
+        style={{ clipPath: RECEIPT_CLIP_PATH }}
+      >
+        <div className="text-center">
+          <p className="text-sm font-bold tracking-[0.2em] text-primary">FACTIO</p>
+          <p className="mt-1 text-xs text-muted-foreground">CFDI 4.0 · Factura #0142</p>
+        </div>
 
-          <div className="space-y-4 p-5 pb-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  Factura
-                </p>
-                <p className="text-lg font-bold tracking-tight">#0142</p>
-              </div>
-              <span className="rounded-full bg-primary-soft px-2.5 py-1 text-xs font-bold text-primary">
-                $4,300
-              </span>
-            </div>
+        <div className="mt-4 border-t border-dashed border-border" />
 
-            <div className="space-y-2">
-              {LINE_ITEMS.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-xl border border-border bg-background px-3 py-2.5"
-                >
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span className="size-6 shrink-0 rounded-lg bg-accent" />
-                    <span className="truncate text-xs font-medium">{item.label}</span>
-                  </div>
-                  <span className="shrink-0 text-xs font-semibold">{item.price}</span>
-                </div>
-              ))}
+        <div className="mt-4 space-y-2.5 font-mono text-xs">
+          {LINE_ITEMS.map((item) => (
+            <div key={item.label} className="flex items-center justify-between gap-3">
+              <span className="truncate text-foreground/80">{item.label}</span>
+              <span className="shrink-0 font-semibold">{item.price}</span>
             </div>
+          ))}
+        </div>
 
-            <div className="rounded-2xl bg-foreground py-3 text-center text-sm font-semibold text-background">
-              Timbrar factura
-            </div>
-          </div>
+        <div className="mt-4 border-t border-dashed border-border" />
+
+        <div className="mt-4 flex items-center justify-between font-mono">
+          <span className="text-sm font-bold tracking-wide text-primary">TOTAL</span>
+          <span className="text-base font-bold text-primary">$4,300 MXN</span>
+        </div>
+
+        <div className="mt-6 flex justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-3 py-1.5 text-xs font-semibold text-primary">
+            ✓ Timbrada ante el SAT
+          </span>
         </div>
       </div>
     </div>
