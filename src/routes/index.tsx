@@ -26,6 +26,7 @@ import {
 import factioLogo from "@/assets/factio-logo.png.asset.json";
 import { HeroMockup } from "@/components/hero-mockup";
 import { PricingCard } from "@/components/pricing-card";
+import { FaqItem } from "@/components/faq-item";
 
 const NAV_LINKS = [
   { href: "#funciones", label: "Funciones" },
@@ -500,6 +501,43 @@ function Landing() {
               },
             ].map((plan) => (
               <PricingCard key={plan.name} {...plan} />
+            ))}
+          </div>
+        </section>
+
+        <section id="preguntas" className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Preguntas frecuentes</h2>
+          </div>
+
+          <div className="mx-auto mt-10 max-w-2xl">
+            {[
+              {
+                q: "¿Necesito e.firma para usar Factio?",
+                a: "No. Para timbrar como emisor necesitas tu Certificado de Sello Digital (CSD) — el archivo .cer, el archivo .key y la contraseña con la que lo generaste. Lo configuras una sola vez en tu Perfil de Facturación.",
+              },
+              {
+                q: "¿Qué es la Factura Global?",
+                a: "Es el comprobante que agrupa tus ventas al público en general de un periodo, en lugar de generar una factura individual por cada cliente.",
+              },
+              {
+                q: "¿Cómo cancelo una factura ya timbrada?",
+                a: "Desde tu historial, con seguimiento del estatus de aceptación ante el SAT hasta que se resuelve.",
+              },
+              {
+                q: "¿Aplica para régimen de honorarios o RESICO?",
+                a: "Sí. Factio funciona para personas físicas con actividad empresarial y profesional (honorarios) y para quienes tributan bajo el Régimen Simplificado de Confianza (RESICO).",
+              },
+              {
+                q: "¿Qué pasa si se me acaban las facturas del mes?",
+                a: "Puedes actualizar tu plan en cualquier momento desde tu perfil, sin esperar al siguiente ciclo de facturación.",
+              },
+              {
+                q: "¿Cómo cancelo mi suscripción?",
+                a: 'Desde "Mi perfil" dentro de la app, sin penalización ni permanencia forzosa.',
+              },
+            ].map((item) => (
+              <FaqItem key={item.q} question={item.q} answer={item.a} />
             ))}
           </div>
         </section>
