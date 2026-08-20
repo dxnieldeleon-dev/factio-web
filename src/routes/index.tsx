@@ -323,6 +323,47 @@ function Landing() {
             ))}
           </div>
         </section>
+
+        <section id="como-funciona" className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Empieza en cuatro pasos
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                step: "1",
+                title: "Crea tu cuenta",
+                body: "Regístrate y configura tu Perfil de Facturación una sola vez.",
+              },
+              {
+                step: "2",
+                title: "Agrega tus productos o servicios",
+                body: "Los que factures seguido, listos para usar.",
+              },
+              {
+                step: "3",
+                title: "Factura en segundos",
+                body: "Selecciona, revisa y timbra.",
+              },
+              {
+                step: "4",
+                title: "Envía o descarga",
+                body: "Tu cliente recibe el CFDI automáticamente.",
+              },
+            ].map((s) => (
+              <div key={s.step}>
+                <div className="grid size-10 place-items-center rounded-2xl bg-primary-soft font-bold text-primary">
+                  {s.step}
+                </div>
+                <h3 className="mt-4 font-semibold">{s.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
       </main>
 
       <footer className="mx-auto max-w-5xl px-5 pb-10">
