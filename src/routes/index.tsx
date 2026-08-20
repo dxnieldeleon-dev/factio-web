@@ -4,12 +4,16 @@ import {
   ArrowRight,
   Check,
   FileCheck2,
+  FilePlus2,
+  History,
   IdCard,
   Mail,
   Menu,
   Package,
   RotateCcw,
+  Send,
   Sparkles,
+  Stamp,
   Users,
   X,
 } from "lucide-react";
@@ -290,6 +294,31 @@ function Landing() {
                 </div>
                 <h3 className="mt-4 font-semibold">{f.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Así de simple se ve facturar
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {/* TODO: reemplazar placeholders por screenshots reales del producto */}
+            {[
+              { icon: FilePlus2, label: "Crea tu factura en segundos" },
+              { icon: Stamp, label: "Timbra con un toque" },
+              { icon: History, label: "Consulta tu historial completo" },
+              { icon: Send, label: "Reenvía o descarga cuando quieras" },
+            ].map((step) => (
+              <div key={step.label}>
+                <div className="grid aspect-[9/16] place-items-center rounded-3xl border border-border bg-muted">
+                  <step.icon className="size-10 text-muted-foreground" />
+                </div>
+                <p className="mt-3 text-center text-sm font-medium">{step.label}</p>
               </div>
             ))}
           </div>
