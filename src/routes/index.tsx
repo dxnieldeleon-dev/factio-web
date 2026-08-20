@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
+  Briefcase,
   Check,
   FileCheck2,
   FilePlus2,
@@ -9,11 +10,14 @@ import {
   IdCard,
   Mail,
   Menu,
+  Mic,
   Package,
   RotateCcw,
   Send,
   Sparkles,
   Stamp,
+  Stethoscope,
+  Store,
   Users,
   X,
 } from "lucide-react";
@@ -360,6 +364,50 @@ function Landing() {
                 </div>
                 <h3 className="mt-4 font-semibold">{s.title}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Factio se adapta a tu forma de trabajar
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                icon: Briefcase,
+                title: "Freelancers y consultores",
+                body: "Factura tus servicios sin perder tiempo en trámites.",
+              },
+              {
+                icon: Stethoscope,
+                title: "Profesionales de la salud",
+                body: "Honorarios facturados de forma simple y consistente.",
+              },
+              {
+                icon: Mic,
+                title: "Coaches y creadores",
+                body: "Factura ingresos recurrentes sin complicarte con el SAT.",
+              },
+              {
+                icon: Store,
+                title: "Pequeños negocios de servicios",
+                body: "Un flujo fiscal que no te distrae de tu operación.",
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-3xl border border-border bg-surface p-6 shadow-soft"
+              >
+                <div className="grid size-10 place-items-center rounded-2xl bg-primary-soft text-primary">
+                  <f.icon className="size-5" />
+                </div>
+                <h3 className="mt-4 font-semibold">{f.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
               </div>
             ))}
           </div>
