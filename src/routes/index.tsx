@@ -1,6 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Check, Menu, Sparkles, ShieldCheck, X, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  FileCheck2,
+  IdCard,
+  Mail,
+  Menu,
+  Package,
+  RotateCcw,
+  Sparkles,
+  Users,
+  X,
+} from "lucide-react";
 import factioLogo from "@/assets/factio-logo.png.asset.json";
 import { HeroMockup } from "@/components/hero-mockup";
 
@@ -229,36 +241,59 @@ function Landing() {
           </div>
         </section>
 
-        <div className="mt-20 grid gap-4 sm:grid-cols-3">
-          {[
-            {
-              icon: Zap,
-              title: "Rápido de verdad",
-              body: "Crea, timbra y envía una factura sin salir de tu celular.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Evita errores fiscales",
-              body: "Validamos RFC, régimen y uso CFDI antes de timbrar.",
-            },
-            {
-              icon: Sparkles,
-              title: "Diseñado para ti",
-              body: "Interfaz sencilla, pensada para freelancers y pequeñas empresas.",
-            },
-          ].map((f) => (
-            <div
-              key={f.title}
-              className="rounded-3xl border border-border bg-surface p-6 shadow-soft"
-            >
-              <div className="grid size-10 place-items-center rounded-2xl bg-primary-soft text-primary">
-                <f.icon className="size-5" />
+        <section id="funciones" className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Todo lo que necesitas para facturar sin fricción
+            </h2>
+          </div>
+
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              {
+                icon: FileCheck2,
+                title: "Timbrado CFDI 4.0",
+                body: "Genera comprobantes fiscales válidos ante el SAT en segundos.",
+              },
+              {
+                icon: Users,
+                title: "Factura Global",
+                body: "Ideal para ventas al público en general, sin factura individual por cliente.",
+              },
+              {
+                icon: Mail,
+                title: "Envío automático por email",
+                body: "Tu cliente recibe el PDF y XML en cuanto timbras.",
+              },
+              {
+                icon: RotateCcw,
+                title: "Cancelación con seguimiento",
+                body: "Cancela y da seguimiento a la aceptación sin perder el hilo.",
+              },
+              {
+                icon: IdCard,
+                title: "Perfil de Facturación",
+                body: "Configura tus datos fiscales una vez, factura siempre igual.",
+              },
+              {
+                icon: Package,
+                title: "Catálogo de productos y servicios",
+                body: "Guarda lo que vendes y factura con un par de toques.",
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                className="rounded-3xl border border-border bg-surface p-6 shadow-soft"
+              >
+                <div className="grid size-10 place-items-center rounded-2xl bg-primary-soft text-primary">
+                  <f.icon className="size-5" />
+                </div>
+                <h3 className="mt-4 font-semibold">{f.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
               </div>
-              <h3 className="mt-4 font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{f.body}</p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </section>
       </main>
 
       <footer className="mx-auto max-w-5xl px-5 pb-10">
