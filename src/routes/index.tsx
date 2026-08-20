@@ -541,6 +541,25 @@ function Landing() {
             ))}
           </div>
         </section>
+
+        <section className="mt-24">
+          <div className="rounded-3xl bg-foreground p-10 text-center text-background md:p-16">
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
+              Deja de complicarte con el SAT
+            </h2>
+            <p className="mt-3 text-lg text-background/70">
+              Factura como debe ser: rápido, simple y sin errores.
+            </p>
+            <Link
+              to="/auth"
+              search={{ mode: "signup" }}
+              className="group mt-8 inline-flex items-center gap-2 rounded-full bg-background px-6 py-3.5 text-sm font-semibold text-foreground transition hover:opacity-90"
+            >
+              Comenzar
+              <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </section>
       </main>
 
       <footer className="mx-auto max-w-5xl px-5 pb-10">
