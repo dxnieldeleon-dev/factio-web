@@ -27,6 +27,7 @@ import factioLogo from "@/assets/factio-logo.png.asset.json";
 import { HeroMockup } from "@/components/hero-mockup";
 import { PricingCard } from "@/components/pricing-card";
 import { FaqItem } from "@/components/faq-item";
+import { SiteFooter } from "@/components/site-footer";
 
 const NAV_LINKS = [
   { href: "#funciones", label: "Funciones" },
@@ -562,17 +563,7 @@ function Landing() {
         </section>
       </main>
 
-      <footer className="mx-auto max-w-5xl px-5 pb-10">
-        <div className="flex flex-wrap gap-4 border-t border-border pt-6 text-xs text-muted-foreground">
-          <span>&copy; {new Date().getFullYear()} Factio</span>
-          <Link to="/terminos" className="hover:text-foreground hover:underline">
-            Términos y Condiciones
-          </Link>
-          <Link to="/privacidad" className="hover:text-foreground hover:underline">
-            Aviso de Privacidad
-          </Link>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
