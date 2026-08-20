@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, Menu, Sparkles, ShieldCheck, X, Zap } from "lucide-react";
+import { ArrowRight, Check, Menu, Sparkles, ShieldCheck, X, Zap } from "lucide-react";
 import factioLogo from "@/assets/factio-logo.png.asset.json";
 import { HeroMockup } from "@/components/hero-mockup";
 
@@ -181,6 +181,53 @@ function Landing() {
             <HeroMockup />
           </div>
         </div>
+
+        <section id="antes-despues" className="mt-24">
+          <div className="mx-auto max-w-2xl text-center">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              Deja atrás el papeleo fiscal
+            </h2>
+            <p className="mt-3 text-lg text-muted-foreground">
+              Facturar no debería ser la parte más pesada de tu semana.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-6 md:grid-cols-2">
+            <div className="rounded-3xl border border-border bg-surface p-6 shadow-soft">
+              <h3 className="font-semibold text-muted-foreground">Antes de Factio</h3>
+              <ul className="mt-4 space-y-3">
+                {[
+                  "Portal del SAT lento y confuso",
+                  "Capturar los mismos datos cada vez",
+                  "Miedo a cometer errores fiscales",
+                  "Facturas perdidas en el correo",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
+                    <X className="mt-0.5 size-4 shrink-0" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-3xl border border-primary/30 bg-primary-soft p-6 shadow-soft">
+              <h3 className="font-semibold text-primary">Con Factio</h3>
+              <ul className="mt-4 space-y-3">
+                {[
+                  "Perfil de facturación guardado, timbra en 1 clic",
+                  "RFC, régimen y uso de CFDI validados automáticamente",
+                  "Validación antes de timbrar, sin sorpresas",
+                  "Historial claro y reenvío con un clic",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-3 text-sm font-medium">
+                    <Check className="mt-0.5 size-4 shrink-0 text-primary" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
 
         <div className="mt-20 grid gap-4 sm:grid-cols-3">
           {[
