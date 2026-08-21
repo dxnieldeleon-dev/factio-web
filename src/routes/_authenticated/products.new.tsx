@@ -7,6 +7,7 @@ import { COMMON_SAT_KEYS, COMMON_SAT_UNITS } from "@/lib/sat-catalogs";
 import { useQueryClient } from "@tanstack/react-query";
 import { SatKeyPicker } from "@/components/sat-key-picker";
 import { isValidProductImage, uploadProductImage } from "@/lib/product-images";
+import { logSatKeySearchMiss } from "@/lib/sat-key-miss";
 
 export const Route = createFileRoute("/_authenticated/products/new")({
   component: NewProduct,
@@ -360,6 +361,7 @@ function NewProduct() {
                 value={form.sat_key}
                 onChange={(code) => set("sat_key", code)}
                 items={COMMON_SAT_KEYS}
+                onFallbackSelected={(searchTerm) => logSatKeySearchMiss("product_new", searchTerm)}
               />
             </Field>
             <Field

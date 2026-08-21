@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import type { SatItem } from "@/lib/sat-catalogs";
+import { resolveSatKeySelection } from "@/lib/sat-key-fallback";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Command,
@@ -15,12 +16,19 @@ export function SatKeyPicker({
   value,
   onChange,
   items,
+  onFallbackSelected,
 }: {
   value: string;
   onChange: (code: string) => void;
   items: SatItem[];
+  // Se dispara además de onChange cuando se elige el código comodín
+  // (01010101, "No existe en el catálogo"), con el texto que el usuario
+  // tenía escrito en el buscador en ese momento. El componente no sabe qué
+  // hace el caller con ese texto (telemetría, log, nada) — solo lo expone.
+  onFallbackSelected?: (searchTerm: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const selected = items.find((i) => i.code === value);
 
   return (
@@ -45,7 +53,11 @@ export function SatKeyPicker({
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
-          <CommandInput placeholder="Busca por nombre o código…" />
+          <CommandInput
+            placeholder="Busca por nombre o código…"
+            value={searchValue}
+            onValueChange={setSearchValue}
+          />
           <CommandList>
             <CommandEmpty>Sin resultados. Prueba con otra palabra.</CommandEmpty>
             <CommandGroup>
@@ -54,7 +66,11 @@ export function SatKeyPicker({
                   key={item.code}
                   value={`${item.code} ${item.name}`}
                   onSelect={() => {
-                    onChange(item.code);
+                    const result = resolveSatKeySelection({ code: item.code, searchValue });
+                    onChange(result.code);
+                    if (result.fallbackSearchTerm !== null) {
+                      onFallbackSelected?.(result.fallbackSearchTerm);
+                    }
                     setOpen(false);
                   }}
                 >
