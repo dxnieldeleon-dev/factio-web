@@ -1,4 +1,4 @@
-import "./instrument.client";
+import "./instrument-browser";
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import * as Sentry from "@sentry/tanstackstart-react";
