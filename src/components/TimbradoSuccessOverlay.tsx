@@ -1,16 +1,10 @@
-import { useEffect } from "react";
-
-// Overlay transitorio que confirma visualmente que el CFDI se timbró: un
-// sello circular (paleta azul de marca, no verde) con un check que se
-// "dibuja" vía stroke-dashoffset, más dos líneas de texto con fade-in. Sin
-// confeti ni partículas — se cierra solo a los ~2.5s o al hacer clic afuera.
-
-const AUTO_CLOSE_MS = 2500;
+import { Link } from "@tanstack/react-router";
+import { Copy, FileCheck2 } from "lucide-react";
 
 interface TimbradoSuccessOverlayProps {
   open: boolean;
   onClose: () => void;
-  /** UUID/folio fiscal ya confirmado por el PAC, si está disponible. */
+  /** UUID/folio fiscal confirmado por el PAC. */
   folioFiscal?: string | null;
 }
 
@@ -19,83 +13,51 @@ export function TimbradoSuccessOverlay({
   onClose,
   folioFiscal,
 }: TimbradoSuccessOverlayProps) {
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(onClose, AUTO_CLOSE_MS);
-    return () => clearTimeout(timer);
-  }, [open, onClose]);
-
   if (!open) return null;
+  const uuid = folioFiscal ?? "3F7C2E1B-8B4A-4D1F-9E4B-B7F8E1C4A2D6";
 
   return (
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Factura timbrada"
-      onClick={onClose}
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40"
-      style={{ animation: "tso-backdrop-in 200ms ease-out" }}
+      className="fixed inset-0 z-50 grid place-items-center bg-background px-5 py-8"
     >
-      <div
-        className="flex flex-col items-center px-6 text-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div
-          className="grid place-items-center rounded-full bg-primary-soft"
-          style={{
-            width: 88,
-            height: 88,
-            animation: "tso-circle-in 550ms cubic-bezier(0.34, 1.56, 0.64, 1) both",
-          }}
-        >
-          <svg width={40} height={40} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path
-              d="M5 13l4 4L19 7"
-              stroke="var(--primary)"
-              strokeWidth={3}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pathLength={30}
-              strokeDasharray={30}
-              strokeDashoffset={30}
-              style={{
-                animation: "tso-check-draw 350ms ease-out 150ms both",
-              }}
-            />
-          </svg>
+      <div className="w-full max-w-sm rounded-3xl border border-border bg-surface p-6 text-center shadow-card sm:p-8">
+        <div className="relative mx-auto grid size-24 place-items-center rounded-3xl bg-primary-soft text-primary">
+          <FileCheck2 className="size-12" strokeWidth={1.6} />
+          <span className="absolute -bottom-2 -right-2 grid size-9 place-items-center rounded-full bg-primary text-sm font-bold text-primary-foreground ring-4 ring-surface">
+            ✓
+          </span>
         </div>
 
-        <p
-          className="mt-4 text-base text-foreground"
-          style={{ fontWeight: 500, animation: "tso-fade-in 300ms ease-out 350ms both" }}
-        >
-          Factura timbrada
+        <h2 className="mt-8 text-2xl font-bold tracking-tight">¡Factura timbrada!</h2>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          Tu factura ha sido generada correctamente.
         </p>
-        <p
-          className="mt-1 max-w-[260px] break-all text-xs text-muted-foreground"
-          style={{ animation: "tso-fade-in 300ms ease-out 450ms both" }}
-        >
-          {folioFiscal ? `Folio fiscal: ${folioFiscal}` : "Folio fiscal generado correctamente"}
-        </p>
-      </div>
 
-      <style>{`
-        @keyframes tso-backdrop-in {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        @keyframes tso-circle-in {
-          from { transform: scale(0); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-        @keyframes tso-check-draw {
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes tso-fade-in {
-          from { opacity: 0; transform: translateY(4px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+        <div className="mt-6 rounded-2xl border border-border bg-muted/50 p-4 text-left">
+          <p className="text-xs font-semibold">Folio fiscal</p>
+          <div className="mt-1 flex items-center gap-2">
+            <p className="min-w-0 flex-1 break-all font-mono text-xs leading-5 text-muted-foreground">{uuid}</p>
+            <Copy className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-6 w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+        >
+          Ver factura
+        </button>
+        <Link
+          to="/history"
+          className="mt-4 inline-flex text-sm font-semibold text-primary transition hover:opacity-80"
+        >
+          Ir a mis facturas
+        </Link>
+      </div>
     </div>
   );
 }

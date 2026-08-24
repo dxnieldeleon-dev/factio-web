@@ -13,6 +13,8 @@ import {
   Trash2,
   CopyPlus,
   Mail,
+  FileCode,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -125,6 +127,7 @@ function InvoiceDetail() {
   const [duplicating, setDuplicating] = useState(false);
   const [stampSuccessOpen, setStampSuccessOpen] = useState(false);
   const [stampedUuid, setStampedUuid] = useState<string | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
 
   // Si esta pantalla es el destino de una duplicación reciente, muestra los
   // avisos de cambio de precio que quedaron guardados justo antes de
@@ -464,7 +467,7 @@ function InvoiceDetail() {
     <div className="px-5 pt-[max(env(safe-area-inset-top),2.5rem)] pb-10">
       <header className="flex items-center gap-3">
         <button
-          onClick={() => navigate({ to: "/history" })}
+          onClick={() => (showFullDetails ? setShowFullDetails(false) : navigate({ to: "/history" }))}
           className="grid size-9 place-items-center rounded-full border border-border bg-surface"
           aria-label="Volver"
         >
@@ -472,27 +475,88 @@ function InvoiceDetail() {
         </button>
         <div className="min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Detalle de factura
+            {showFullDetails ? "Detalle de factura" : "Factura"}
           </p>
           <h1 className="font-mono text-lg font-bold tracking-tight">{folioFmt}</h1>
         </div>
-        <button
-          type="button"
-          onClick={duplicate}
-          disabled={duplicating}
-          className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface disabled:opacity-60"
-          aria-label="Duplicar factura"
-          title="Duplicar factura"
-        >
-          {duplicating ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <CopyPlus className="size-4" />
-          )}
-        </button>
+        {(!isIssued || showFullDetails) && (
+          <button
+            type="button"
+            onClick={duplicate}
+            disabled={duplicating}
+            className="grid size-9 shrink-0 place-items-center rounded-full border border-border bg-surface disabled:opacity-60"
+            aria-label="Duplicar factura"
+            title="Duplicar factura"
+          >
+            {duplicating ? <Loader2 className="size-4 animate-spin" /> : <CopyPlus className="size-4" />}
+          </button>
+        )}
+        {isIssued && !showFullDetails && <StatusChip status={inv.status} />}
       </header>
 
-      <section className="mt-5 rounded-2xl border border-border bg-surface px-5 py-4">
+      {isIssued && !showFullDetails && (
+        <section className="mt-5 rounded-3xl border border-border bg-surface p-5 shadow-soft">
+          <p className="text-xs font-semibold text-muted-foreground">Total</p>
+          <p className="mt-1 text-2xl font-bold tracking-tight">
+            {formatMXN(inv.total)} <span className="text-xs font-medium text-muted-foreground">{inv.currency ?? "MXN"}</span>
+          </p>
+          <div className="mt-5 border-b border-border pb-4">
+            <p className="font-semibold">{snap.legal_name ?? "—"}</p>
+            <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+              {snap.rfc ?? "—"} · {formatDateMX(inv.issued_at ?? inv.created_at)}
+            </p>
+          </div>
+
+          <div className="mt-5">
+            <h2 className="text-xs font-semibold">Acciones</h2>
+            <div className="mt-3 space-y-2">
+              <button
+                type="button"
+                disabled={!inv.pdf_url}
+                onClick={() => inv.pdf_url && openInvoiceDocument(inv.pdf_url).catch((error) => toast.error(error.message))}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="size-4" /> Descargar PDF
+              </button>
+              <button
+                type="button"
+                disabled={!inv.xml_url}
+                onClick={() => inv.xml_url && openInvoiceDocument(inv.xml_url).catch((error) => toast.error(error.message))}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <FileCode className="size-4" /> Descargar XML
+              </button>
+              <button
+                type="button"
+                disabled={sendingEmail || !clientEmail}
+                onClick={sendInvoiceEmail}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm font-semibold text-primary disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendingEmail ? <Loader2 className="size-4 animate-spin" /> : <Mail className="size-4" />}
+                {inv.email_sent_at ? "Reenviar por correo" : "Enviar por correo"}
+              </button>
+              <button
+                type="button"
+                disabled={sendingWhatsApp || !inv.pdf_url}
+                onClick={sendWhatsApp}
+                className="flex w-full items-center gap-3 rounded-xl border border-border bg-background px-4 py-3 text-left text-sm font-semibold text-success disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {sendingWhatsApp ? <Loader2 className="size-4 animate-spin" /> : <MessageCircle className="size-4" />}
+                Compartir por WhatsApp
+              </button>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowFullDetails(true)}
+            className="mt-7 w-full text-center text-sm font-semibold text-primary"
+          >
+            Ver factura completa
+          </button>
+        </section>
+      )}
+
+      {(!isIssued || showFullDetails) && <section className="mt-5 rounded-2xl border border-border bg-surface px-5 py-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Estado
         </h2>
@@ -531,17 +595,17 @@ function InvoiceDetail() {
             </button>
           </div>
         )}
-      </section>
+      </section>}
 
-      <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
+      {(!isIssued || showFullDetails) && <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Receptor
         </h2>
         <p className="mt-2 font-semibold">{snap.legal_name ?? "—"}</p>
         <p className="mt-0.5 font-mono text-xs text-muted-foreground">{snap.rfc ?? "—"}</p>
-      </section>
+      </section>}
 
-      <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
+      {(!isIssued || showFullDetails) && <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Datos fiscales
         </h2>
@@ -569,9 +633,9 @@ function InvoiceDetail() {
             </dd>
           </div>
         </dl>
-      </section>
+      </section>}
 
-      <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
+      {(!isIssued || showFullDetails) && <section className="mt-3 rounded-2xl border border-border bg-surface px-5 py-4">
         <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           Conceptos
         </h2>
@@ -620,7 +684,7 @@ function InvoiceDetail() {
             <span>{formatMXN(inv.total)}</span>
           </div>
         </div>
-      </section>
+      </section>}
 
       {isDraft && (
         <section className="mt-5 space-y-2">
@@ -682,7 +746,7 @@ function InvoiceDetail() {
         </section>
       )}
 
-      {isIssued && (
+      {isIssued && showFullDetails && (
         <section className="mt-5 space-y-2">
           <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Acciones

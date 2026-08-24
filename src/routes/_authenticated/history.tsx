@@ -5,33 +5,17 @@ import { toast } from "sonner";
 import {
   Search,
   FileText,
-  Download,
-  Share2,
   ChevronRight,
   Plus,
   AlertTriangle,
   Clock,
   Loader2,
-  Trash2,
-  CopyPlus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { getEdgeFunctionErrorMessage } from "@/lib/edge-function-errors";
 import { formatMXN, formatDateMX } from "@/lib/format";
-import { openInvoiceDocument, shareInvoiceOnWhatsApp } from "@/lib/invoice-documents";
-import { runDuplicateFromInvoice } from "@/lib/duplicate-invoice-ui";
 import { StatusChip } from "./dashboard";
 import { EmptyState } from "@/components/empty-state";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 
 export const Route = createFileRoute("/_authenticated/history")({
   component: History,
@@ -80,9 +64,6 @@ function History() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [draftToDelete, setDraftToDelete] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
 
   const { data: isAdmin } = useQuery({
     queryKey: ["auth", "isAdmin"],
@@ -111,17 +92,6 @@ function History() {
       );
     });
 
-  async function duplicate(invoiceId: string) {
-    setDuplicatingId(invoiceId);
-    try {
-      const result = await runDuplicateFromInvoice(invoiceId);
-      qc.invalidateQueries({ queryKey: ["invoices", "history"] });
-      if (result) navigate({ to: "/invoices/$id", params: { id: result.invoiceId } });
-    } finally {
-      setDuplicatingId(null);
-    }
-  }
-
   function refreshAfterReconciliation() {
     qc.invalidateQueries({ queryKey: ["invoices", "history"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -130,27 +100,6 @@ function History() {
   function refreshAfterCancellationCheck() {
     qc.invalidateQueries({ queryKey: ["invoices", "history"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
-  }
-
-  async function confirmDeleteDraft() {
-    if (!draftToDelete) return;
-    setDeleting(true);
-    try {
-      const { error } = await supabase
-        .from("invoices")
-        .delete()
-        .eq("id", draftToDelete)
-        .eq("status", "draft");
-      if (error) throw error;
-      toast.success("Borrador eliminado");
-      setDraftToDelete(null);
-      qc.invalidateQueries({ queryKey: ["invoices", "history"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No pudimos eliminar el borrador");
-    } finally {
-      setDeleting(false);
-    }
   }
 
   return (
@@ -279,88 +228,6 @@ function History() {
                     </div>
                     <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground" />
                   </button>
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
-                    {inv.pdf_url && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openInvoiceDocument(inv.pdf_url!).catch((error) =>
-                            toast.error(error.message),
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold"
-                      >
-                        <Download className="size-3" /> PDF
-                      </button>
-                    )}
-                    {inv.xml_url && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          openInvoiceDocument(inv.xml_url!).catch((error) =>
-                            toast.error(error.message),
-                          )
-                        }
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold"
-                      >
-                        <Download className="size-3" /> XML
-                      </button>
-                    )}
-                    {inv.pdf_url && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const folioFmt =
-                            inv.status === "draft"
-                              ? "Borrador"
-                              : `${inv.series}-${String(inv.folio).padStart(6, "0")}`;
-                          shareInvoiceOnWhatsApp(
-                            inv.pdf_url!,
-                            `Factura ${folioFmt} por ${formatMXN(inv.total)}`,
-                            null,
-                            `Factura-${folioFmt}.pdf`,
-                          ).catch((error) =>
-                            toast.error(
-                              error instanceof Error
-                                ? error.message
-                                : "No pudimos preparar el envío",
-                            ),
-                          );
-                        }}
-                        className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1 text-[11px] font-semibold text-white"
-                      >
-                        <Share2 className="size-3" /> WhatsApp
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={duplicatingId === inv.id}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        duplicate(inv.id);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-[11px] font-semibold disabled:opacity-60"
-                    >
-                      {duplicatingId === inv.id ? (
-                        <Loader2 className="size-3 animate-spin" />
-                      ) : (
-                        <CopyPlus className="size-3" />
-                      )}
-                      Duplicar
-                    </button>
-                    {inv.status === "draft" && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDraftToDelete(inv.id);
-                        }}
-                        className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-destructive/30 bg-destructive/5 px-3 py-1 text-[11px] font-semibold text-destructive"
-                      >
-                        <Trash2 className="size-3" /> Eliminar
-                      </button>
-                    )}
-                  </div>
                 </li>
               );
             })}
@@ -368,31 +235,6 @@ function History() {
         )}
       </div>
 
-      <AlertDialog open={!!draftToDelete} onOpenChange={(open) => !open && setDraftToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar este borrador?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Este borrador se eliminará por completo. Esta acción no se puede deshacer. Solo se
-              pueden eliminar borradores — las facturas ya timbradas no se pueden borrar, se
-              cancelan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault();
-                confirmDeleteDraft();
-              }}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? <Loader2 className="size-4 animate-spin" /> : "Sí, eliminar"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
