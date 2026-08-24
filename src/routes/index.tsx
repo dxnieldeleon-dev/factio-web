@@ -468,7 +468,7 @@ function Landing() {
               <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">1</div>
               <h3 className="mt-4 text-center font-semibold">Crea tu factura</h3>
               <p className="mt-1 text-center text-sm text-muted-foreground">Llena los datos y agrega tus conceptos.</p>
-              <div className="mt-5 min-h-[21.5rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><NewInvoiceMockup /></div>
+              <div className="mt-5 h-[20.25rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><NewInvoiceMockup /></div>
               <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
                 <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
               </div>
@@ -478,7 +478,7 @@ function Landing() {
               <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">2</div>
               <h3 className="mt-4 text-center font-semibold">Timbrá al instante</h3>
               <p className="mt-1 text-center text-sm text-muted-foreground">Factio timbra tu CFDI automáticamente.</p>
-              <div className="mt-5 min-h-[21.5rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><StampedInvoiceMockup /></div>
+              <div className="mt-5 h-[20.25rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><StampedInvoiceMockup /></div>
               <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
                 <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
               </div>
@@ -488,7 +488,7 @@ function Landing() {
               <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">3</div>
               <h3 className="mt-4 text-center font-semibold">Consulta tu historial</h3>
               <p className="mt-1 text-center text-sm text-muted-foreground">Todos tus comprobantes en un solo lugar.</p>
-              <div className="mt-5 min-h-[21.5rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceListMockup /></div>
+              <div className="mt-5 h-[20.25rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceListMockup /></div>
               <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
                 <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
               </div>
@@ -498,7 +498,7 @@ function Landing() {
               <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">4</div>
               <h3 className="mt-4 text-center font-semibold">Reenvía o descarga</h3>
               <p className="mt-1 text-center text-sm text-muted-foreground">Comparte tu factura cuando y como quieras.</p>
-              <div className="mt-5 min-h-[21.5rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceDetailMockup /></div>
+              <div className="mt-5 h-[20.25rem] rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceDetailMockup /></div>
             </div>
           </div>
 
