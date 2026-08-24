@@ -26,7 +26,9 @@ import { getEdgeFunctionErrorMessage } from "@/lib/edge-function-errors";
 import { formatMXN } from "@/lib/format";
 import { openInvoiceDocument, shareInvoiceOnWhatsApp } from "@/lib/invoice-documents";
 import { playSuccessChime } from "@/lib/success-chime";
+import { logSatKeySearchMiss } from "@/lib/sat-key-miss";
 import { TimbradoSuccessOverlay } from "@/components/TimbradoSuccessOverlay";
+import { SatKeyPicker } from "@/components/sat-key-picker";
 import {
   CFDI_USES,
   PAYMENT_FORMS,
@@ -1100,17 +1102,15 @@ function StepItems({
             </div>
             <div className="mt-2 grid grid-cols-3 gap-2">
               <Mini label="Clave SAT">
-                <select
+                <SatKeyPicker
+                  variant="compact"
                   value={it.sat_key}
-                  onChange={(e) => update(idx, { sat_key: e.target.value })}
-                  className="ff-mini"
-                >
-                  {COMMON_SAT_KEYS.map((k) => (
-                    <option key={k.code} value={k.code}>
-                      {k.code}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(code) => update(idx, { sat_key: code })}
+                  items={COMMON_SAT_KEYS}
+                  onFallbackSelected={(searchTerm) =>
+                    logSatKeySearchMiss("invoice_new", searchTerm)
+                  }
+                />
               </Mini>
               <Mini label="Unidad">
                 <select
