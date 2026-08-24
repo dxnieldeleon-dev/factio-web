@@ -11,6 +11,12 @@
  *
  * Paleta Factio: #011025 (oscuro) · #052659 (primary) · #5482B4 (medio) ·
  * #7EA0C5 (claro) · #C2E8FF (más claro)
+ *
+ * --color-brand-* below are the canonical, theme-independent brand swatches
+ * (fixed hex, confirmed by pixel-extraction from the real isotype) — see
+ * docs/BRAND.md. They are separate from --primary/--background/etc., which
+ * stay the semantic tokens components should keep using and which do change
+ * between :root and .dark.
  * ============================================================ */
 
 @theme inline {
@@ -60,6 +66,13 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Canonical brand palette (v1) — fixed, theme-independent. See docs/BRAND.md. */
+  --color-brand-ink: oklch(0.173 0.050 253.5); /* #011025 */
+  --color-brand-primary: oklch(0.281 0.100 259.3); /* #052659 */
+  --color-brand-accent: oklch(0.595 0.092 251.5); /* #5482B4 */
+  --color-brand-soft: oklch(0.694 0.066 250.9); /* #7EA0C5 */
+  --color-brand-highlight: oklch(0.911 0.051 234.7); /* #C2E8FF */
 
   --shadow-soft: 0 1px 2px oklch(0 0 0 / 0.04), 0 1px 1px oklch(0 0 0 / 0.03);
   --shadow-card: 0 1px 3px oklch(0 0 0 / 0.05), 0 1px 2px oklch(0 0 0 / 0.04);
