@@ -1,23 +1,27 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowLeft,
   ArrowRight,
   Briefcase,
   Check,
+  ChevronDown,
+  Copy,
+  Download,
   FileCheck2,
-  FilePlus2,
-  History,
+  FileCode,
+  Filter,
   IdCard,
   Lock,
   Mail,
   Menu,
+  MessageCircle,
   Mic,
   Package,
   RotateCcw,
-  Send,
+  Search,
   ShieldCheck,
   Sparkles,
-  Stamp,
   Stethoscope,
   Store,
   Users,
@@ -35,6 +39,147 @@ const NAV_LINKS = [
   { href: "#precios", label: "Precios" },
   { href: "#preguntas", label: "Preguntas" },
 ];
+
+function NewInvoiceMockup() {
+  return (
+    <div className="space-y-3 text-[10px] leading-tight sm:text-xs">
+      <div className="flex items-center gap-2 font-semibold">
+        <ArrowLeft className="size-3.5" />
+        Nueva factura
+      </div>
+      <div className="rounded-xl border border-border p-2.5">
+        <p className="text-[9px] text-muted-foreground">Cliente</p>
+        <p className="mt-1 truncate font-medium">Empresa Ejemplo S.A. de C.V.</p>
+        <p className="mt-1 text-[9px] text-muted-foreground">EJE900101AAA</p>
+      </div>
+      <div className="flex items-center justify-between rounded-xl border border-border p-2.5">
+        <div className="min-w-0">
+          <p className="text-[9px] text-muted-foreground">Uso CFDI</p>
+          <p className="mt-1 truncate font-medium">G03 - Gastos en general</p>
+        </div>
+        <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+      </div>
+      <div>
+        <p className="font-semibold">Conceptos</p>
+        <div className="mt-2 flex justify-between gap-2 border-b border-border pb-2">
+          <div className="min-w-0">
+            <p className="truncate font-medium">Servicio de consultoría</p>
+            <p className="mt-1 text-[9px] text-muted-foreground">1 x $1,000.00</p>
+          </div>
+          <p className="shrink-0 font-medium">$1,000.00</p>
+        </div>
+        <p className="mt-2 font-medium text-primary">+ Agregar concepto</p>
+      </div>
+      <div className="space-y-1.5 border-t border-border pt-2.5 text-muted-foreground">
+        <div className="flex justify-between"><span>Subtotal</span><span>$1,000.00</span></div>
+        <div className="flex justify-between"><span>IVA (16%)</span><span>$160.00</span></div>
+        <div className="flex justify-between pt-1 font-bold text-foreground"><span>Total</span><span>$1,160.00</span></div>
+      </div>
+      <div className="rounded-xl bg-primary px-3 py-2.5 text-center font-semibold text-primary-foreground">
+        Emitir factura
+      </div>
+    </div>
+  );
+}
+
+function StampedInvoiceMockup() {
+  return (
+    <div className="flex min-h-full flex-col text-center text-[10px] leading-tight sm:text-xs">
+      <div className="mx-auto grid size-14 place-items-center rounded-full bg-primary-soft text-primary">
+        <FileCheck2 className="size-7" />
+      </div>
+      <h4 className="mt-4 text-sm font-semibold">¡Factura timbrada!</h4>
+      <p className="mt-2 text-muted-foreground">Tu factura ha sido generada correctamente.</p>
+      <div className="mt-5 rounded-xl bg-muted p-3 text-left">
+        <p className="text-[9px] text-muted-foreground">Folio fiscal</p>
+        <div className="mt-1 flex items-start gap-1 font-mono text-[9px] font-medium leading-snug">
+          <span className="break-all">3F7C2E1B-8B4A-4D1F-9E4B-B7F8E1C4A2D6</span>
+          <Copy className="size-3 shrink-0 text-muted-foreground" />
+        </div>
+      </div>
+      <div className="mt-5 rounded-xl bg-primary px-3 py-2.5 font-semibold text-primary-foreground">Ver factura</div>
+      <p className="mt-3 font-medium text-primary">Ir a mis facturas</p>
+    </div>
+  );
+}
+
+function InvoiceListMockup() {
+  const invoices = [
+    ["Empresa Ejemplo S.A. de C.V.", "A-000005 · 07-MAY-2024", "$1,160.00"],
+    ["Consultoría Integral S.A.", "A-000004 · 06-MAY-2024", "$2,320.00"],
+    ["Soluciones Digitales S.A.", "A-000003 · 05-MAY-2024", "$870.00"],
+  ];
+  return (
+    <div className="text-[10px] leading-tight sm:text-xs">
+      <h4 className="font-semibold">Facturas</h4>
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 rounded-lg border border-border px-2 py-2 text-[9px] text-muted-foreground">
+          <Search className="size-3 shrink-0" />
+          <span className="truncate">Buscar por cliente o folio</span>
+        </div>
+        <Filter className="size-4 shrink-0 text-muted-foreground" />
+      </div>
+      <div className="mt-3 flex gap-1.5 text-[9px] font-medium">
+        <span className="rounded-full bg-primary px-2 py-1 text-primary-foreground">Todas</span>
+        <span className="rounded-full border border-border px-2 py-1">Vigentes</span>
+        <span className="rounded-full border border-border px-2 py-1">Canceladas</span>
+      </div>
+      <div className="mt-3 divide-y divide-border">
+        {invoices.map(([client, detail, total]) => (
+          <div key={detail} className="flex items-center justify-between gap-2 py-2.5">
+            <div className="min-w-0">
+              <p className="truncate font-medium">{client}</p>
+              <p className="mt-1 text-[8px] text-muted-foreground">{detail}</p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="font-medium">{total}</p>
+              <span className="mt-1 inline-block rounded-full bg-success/15 px-1.5 py-0.5 text-[8px] font-bold text-success">VIGENTE</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-center font-medium text-primary">Ver todas las facturas</p>
+    </div>
+  );
+}
+
+function InvoiceDetailMockup() {
+  const actions = [
+    [Download, "Descargar PDF"],
+    [FileCode, "Descargar XML"],
+    [Mail, "Enviar por correo"],
+    [MessageCircle, "Compartir por WhatsApp"],
+  ] as const;
+  return (
+    <div className="text-[10px] leading-tight sm:text-xs">
+      <div className="flex items-center gap-2">
+        <ArrowLeft className="size-3.5 shrink-0" />
+        <p className="min-w-0 flex-1 truncate font-semibold">Factura A-000005</p>
+        <span className="rounded-full bg-success/15 px-1.5 py-0.5 text-[8px] font-bold text-success">VIGENTE</span>
+      </div>
+      <div className="mt-5">
+        <p className="text-muted-foreground">Total</p>
+        <p className="mt-1 text-2xl font-bold tracking-tight">$1,160.00 <span className="text-[10px] font-medium text-muted-foreground">MXN</span></p>
+      </div>
+      <div className="mt-5 border-y border-border py-3">
+        <p className="font-medium">Empresa Ejemplo S.A. de C.V.</p>
+        <p className="mt-1 text-[9px] text-muted-foreground">EJE900101AAA · 07-MAY-2024</p>
+      </div>
+      <div className="mt-4">
+        <p className="font-semibold">Acciones</p>
+        <div className="mt-2 divide-y divide-border">
+          {actions.map(([Icon, label]) => (
+            <div key={label} className="flex items-center gap-2 py-2 text-primary">
+              <Icon className="size-3.5" />
+              <span className="font-medium">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className="mt-3 text-center font-medium text-primary">Ver factura completa</p>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -308,69 +453,64 @@ function Landing() {
           </div>
         </section>
 
-        <section className="mt-24">
+        <section id="como-funciona" className="mt-24">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               Así de simple se ve facturar
             </h2>
+            <p className="mt-3 text-lg text-muted-foreground">
+              Crea tu factura en segundos y gestiona tu negocio desde un solo lugar.
+            </p>
           </div>
 
-          <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            {/* TODO: reemplazar placeholders por screenshots reales del producto */}
-            {[
-              { icon: FilePlus2, label: "Crea tu factura en segundos" },
-              { icon: Stamp, label: "Timbra con un toque" },
-              { icon: History, label: "Consulta tu historial completo" },
-              { icon: Send, label: "Reenvía o descarga cuando quieras" },
-            ].map((step) => (
-              <div key={step.label}>
-                <div className="grid aspect-[9/16] place-items-center rounded-3xl border border-border bg-muted">
-                  <step.icon className="size-10 text-muted-foreground" />
-                </div>
-                <p className="mt-3 text-center text-sm font-medium">{step.label}</p>
+          <div className="mt-10 grid gap-6 lg:grid-cols-4">
+            <div className="relative min-w-0">
+              <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">1</div>
+              <h3 className="mt-4 text-center font-semibold">Crea tu factura</h3>
+              <p className="mt-1 text-center text-sm text-muted-foreground">Llena los datos y agrega tus conceptos.</p>
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5 shadow-soft"><NewInvoiceMockup /></div>
+              <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
+                <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
 
-        <section id="como-funciona" className="mt-24">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Empieza en cuatro pasos
-            </h2>
-          </div>
-
-          <div className="mt-10 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                step: "1",
-                title: "Crea tu cuenta",
-                body: "Regístrate y configura tu Perfil de Facturación una sola vez.",
-              },
-              {
-                step: "2",
-                title: "Agrega tus productos o servicios",
-                body: "Los que factures seguido, listos para usar.",
-              },
-              {
-                step: "3",
-                title: "Factura en segundos",
-                body: "Selecciona, revisa y timbra.",
-              },
-              {
-                step: "4",
-                title: "Envía o descarga",
-                body: "Tu cliente recibe el CFDI automáticamente.",
-              },
-            ].map((s) => (
-              <div key={s.step}>
-                <div className="grid size-10 place-items-center rounded-2xl bg-primary-soft font-bold text-primary">
-                  {s.step}
-                </div>
-                <h3 className="mt-4 font-semibold">{s.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground">{s.body}</p>
+            <div className="relative min-w-0">
+              <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">2</div>
+              <h3 className="mt-4 text-center font-semibold">Timbrá al instante</h3>
+              <p className="mt-1 text-center text-sm text-muted-foreground">Factio timbra tu CFDI automáticamente.</p>
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5 shadow-soft"><StampedInvoiceMockup /></div>
+              <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
+                <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
               </div>
-            ))}
+            </div>
+
+            <div className="relative min-w-0">
+              <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">3</div>
+              <h3 className="mt-4 text-center font-semibold">Consulta tu historial</h3>
+              <p className="mt-1 text-center text-sm text-muted-foreground">Todos tus comprobantes en un solo lugar.</p>
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceListMockup /></div>
+              <div className="absolute left-[calc(100%+0.75rem)] top-34 hidden w-6 items-center lg:flex" aria-hidden="true">
+                <div className="w-full border-t border-dashed border-primary/50" /><ArrowRight className="-ml-0.5 size-3 shrink-0 text-primary/70" />
+              </div>
+            </div>
+
+            <div className="min-w-0">
+              <div className="mx-auto grid size-12 place-items-center rounded-full bg-primary-soft text-lg font-bold text-primary">4</div>
+              <h3 className="mt-4 text-center font-semibold">Reenvía o descarga</h3>
+              <p className="mt-1 text-center text-sm text-muted-foreground">Comparte tu factura cuando y como quieras.</p>
+              <div className="mt-5 rounded-3xl border border-border bg-surface p-5 shadow-soft"><InvoiceDetailMockup /></div>
+            </div>
+          </div>
+
+          <div className="mt-12 flex flex-col items-center gap-3">
+            <Link
+              to="/auth"
+              search={{ mode: "signup" }}
+              className="inline-flex items-center gap-2 rounded-full bg-foreground px-6 py-3.5 text-sm font-semibold text-background transition hover:opacity-90"
+            >
+              Comenzar
+              <ArrowRight className="size-4" />
+            </Link>
           </div>
         </section>
 
