@@ -1,4 +1,12 @@
 {
+  // El repo tiene un package.json en la raíz (proyecto frontend Node/Vite).
+  // Sin esto, Deno lo detecta y por default administra un node_modules/
+  // local para resolver los tipos de los imports npm: (p. ej. @types/node,
+  // que trae transitivamente @supabase/supabase-js) — folder que en CI
+  // (test-edge-functions) nunca existe, porque ese job corre `deno test`
+  // sin `npm install` antes. false vuelve a resolver todo por red, como
+  // siempre lo hizo hasta que esto empezó a fallar.
+  "nodeModulesDir": false,
   "test": {
     "include": ["**/*.test.ts"]
   },
