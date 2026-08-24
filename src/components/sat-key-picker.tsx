@@ -17,6 +17,7 @@ export function SatKeyPicker({
   onChange,
   items,
   onFallbackSelected,
+  variant = "default",
 }: {
   value: string;
   onChange: (code: string) => void;
@@ -26,29 +27,43 @@ export function SatKeyPicker({
   // tenía escrito en el buscador en ese momento. El componente no sabe qué
   // hace el caller con ese texto (telemetría, log, nada) — solo lo expone.
   onFallbackSelected?: (searchTerm: string) => void;
+  // "default": trigger ff-input (products.new/edit). "compact": trigger
+  // ff-mini, para encajar en celdas angostas como el grid de 3 columnas
+  // del renglón de factura (invoices.new.tsx) — mismo popover/lista en
+  // ambos casos, solo cambia el tamaño del trigger cerrado.
+  variant?: "default" | "compact";
 }) {
   const [open, setOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const selected = items.find((i) => i.code === value);
+  const compact = variant === "compact";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="ff-input flex items-center justify-between gap-2 text-left"
+          className={
+            compact
+              ? "ff-mini flex items-center justify-between gap-1 text-left"
+              : "ff-input flex items-center justify-between gap-2 text-left"
+          }
         >
-          <span className="min-w-0 flex-1 truncate">
+          <span className={`min-w-0 flex-1 truncate ${compact ? "text-xs" : ""}`}>
             {selected ? (
               <>
                 <span className="font-mono text-muted-foreground">{selected.code}</span> —{" "}
                 {selected.name}
               </>
             ) : (
-              <span className="text-muted-foreground">Buscar clave SAT…</span>
+              <span className="text-muted-foreground">
+                {compact ? "Buscar…" : "Buscar clave SAT…"}
+              </span>
             )}
           </span>
-          <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground" />
+          <ChevronsUpDown
+            className={`shrink-0 text-muted-foreground ${compact ? "size-3.5" : "size-4"}`}
+          />
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
