@@ -47,4 +47,10 @@ jobs:
           deno-version: v2.x
 
       - name: Run Edge Function tests (Deno)
-        run: deno test supabase/functions/_shared
+        # --config explícito: este job corre desde la raíz del repo, y ahí
+        # también vive el package.json del frontend — sin apuntar al
+        # deno.json de supabase/functions/ (nodeModulesDir: "none"), Deno
+        # nunca lo descubre (busca deno.json subiendo desde el cwd, no
+        # desde la ruta del argumento) y por default intenta administrar
+        # un node_modules/ local que este job nunca instala.
+        run: deno test --config supabase/functions/deno.json supabase/functions/_shared

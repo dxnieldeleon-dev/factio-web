@@ -4,9 +4,12 @@
   // local para resolver los tipos de los imports npm: (p. ej. @types/node,
   // que trae transitivamente @supabase/supabase-js) — folder que en CI
   // (test-edge-functions) nunca existe, porque ese job corre `deno test`
-  // sin `npm install` antes. false vuelve a resolver todo por red, como
-  // siempre lo hizo hasta que esto empezó a fallar.
-  "nodeModulesDir": false,
+  // sin `npm install` antes. "none" vuelve a resolver todo por red, como
+  // siempre lo hizo hasta que esto empezó a fallar. (El workflow debe
+  // invocar `deno test` con --config apuntando aquí: Deno descubre
+  // deno.json por directorio de trabajo, no por la ruta del argumento, y
+  // el job corre desde la raíz del repo — ver .github/workflows/build.yml.)
+  "nodeModulesDir": "none",
   "test": {
     "include": ["**/*.test.ts"]
   },
