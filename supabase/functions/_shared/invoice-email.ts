@@ -74,7 +74,7 @@ function moneyLabel(value: number, currency: string): string {
 // Arial/Helvetica, footer "Factio · Facturación CFDI simplificada". Se
 // mantiene inline y basado en tablas por compatibilidad con clientes de
 // correo (Outlook, Gmail, etc.) — igual que las plantillas de Resend.
-const FACTIO_LOGO_URL = "https://drive.google.com/uc?export=view&id=1CTNNQEDfbpvx0XRgK0zpZZV-4V9pndAw";
+const FACTIO_LOGO_URL = "https://fziszuqxogariodpbbcx.supabase.co/storage/v1/object/public/branding/2.png";
 
 function buildHtml(input: InvoiceEmailInput): string {
   const greeting = input.clientName ? `Hola ${input.clientName},` : "Hola,";
