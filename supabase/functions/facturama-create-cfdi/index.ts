@@ -692,7 +692,7 @@ async function loadInvoiceContext(
     supabase
       .from("companies")
       .select(
-        "id, user_id, legal_name, rfc, tax_regime, postal_code, csd_cer_url, csd_key_url, csd_serial_number, csd_valid_to, activity_profile_id, activity_profiles(activity_category)",
+        "id, user_id, legal_name, email, rfc, tax_regime, postal_code, csd_cer_url, csd_key_url, csd_serial_number, csd_valid_to, activity_profile_id, activity_profiles(activity_category)",
       )
       .eq("id", invoice.company_id)
       .eq("user_id", user.id)
@@ -900,6 +900,7 @@ Deno.serve(async (req) => {
           total: Number(context.invoice.total),
           currency: asText(context.invoice.currency) ?? "MXN",
           companyName: asText(context.company.legal_name) ?? "Factio",
+          companyEmail: asText(context.company.email) ?? undefined,
           clientName: asText(snapshot?.legal_name) ?? asText(context.client.legal_name) ?? "",
           clientEmail,
           xmlPath,

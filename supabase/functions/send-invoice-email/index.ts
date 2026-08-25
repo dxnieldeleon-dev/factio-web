@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
 
   const { data: company } = await supabase
     .from("companies")
-    .select("legal_name")
+    .select("legal_name, email")
     .eq("id", invoice.company_id)
     .eq("user_id", authData.user.id)
     .maybeSingle();
@@ -120,6 +120,7 @@ Deno.serve(async (req) => {
     total: Number(invoice.total),
     currency: invoice.currency ?? "MXN",
     companyName: company?.legal_name ?? "Factio",
+    companyEmail: company?.email ?? undefined,
     clientName: clientName ?? "",
     clientEmail,
     xmlPath: invoice.xml_url,

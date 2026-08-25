@@ -8,7 +8,7 @@
 // respuesta de la función manual).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { sendEmail } from "./resend/client.ts";
+import { getFromAddress, sendEmail } from "./resend/client.ts";
 import { isResendError, userFacingResendMessage } from "./resend/errors.ts";
 
 const CFDI_BUCKET = "cfdi-documents";
@@ -19,6 +19,7 @@ export interface InvoiceEmailInput {
   total: number;
   currency: string;
   companyName: string;
+  companyEmail?: string;
   clientName: string;
   clientEmail: string;
   xmlPath: string;
@@ -240,6 +241,14 @@ function buildHtml(input: InvoiceEmailInput): string {
 </html>`;
 }
 
+// Sanea el nombre del negocio para usarlo como display name del header
+// `From` (ej. `Mi Negocio <facturas@factio.mx>`): sin saltos de línea/retornos
+// de carro (previene header injection) ni comillas dobles sin escapar.
+function sanitizeDisplayName(value: string): string {
+  const cleaned = value.replace(/[\r\n]+/g, " ").replace(/"/g, "").trim();
+  return cleaned || "Factio";
+}
+
 export function resolveClientEmail(
   clientEmail: string | null | undefined,
   snapshot: Record<string, unknown> | null,
@@ -259,6 +268,10 @@ export async function sendInvoiceEmailAndRecord(
       downloadAttachment(supabase, input.xmlPath),
     ]);
 
+    const fromAddress = getFromAddress();
+    const from = fromAddress ? `${sanitizeDisplayName(input.companyName)} <${fromAddress}>` : undefined;
+    const replyTo = input.companyEmail?.trim() || undefined;
+
     await sendEmail({
       to: [input.clientEmail],
       subject: `Factura ${input.folioLabel} — ${input.companyName}`,
@@ -267,6 +280,8 @@ export async function sendInvoiceEmailAndRecord(
         { filename: `Factura-${input.folioLabel}.pdf`, content: pdfBase64 },
         { filename: `Factura-${input.folioLabel}.xml`, content: xmlBase64 },
       ],
+      from,
+      replyTo,
     });
 
     await supabase.rpc("record_invoice_email_delivery", {

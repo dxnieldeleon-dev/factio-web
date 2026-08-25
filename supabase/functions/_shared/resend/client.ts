@@ -10,6 +10,8 @@ interface SendEmailParams {
   subject: string;
   html: string;
   attachments?: ResendAttachment[];
+  from?: string;
+  replyTo?: string;
 }
 
 interface ResendConfig {
@@ -17,9 +19,13 @@ interface ResendConfig {
   from: string;
 }
 
+export function getFromAddress(): string {
+  return Deno.env.get("RESEND_FROM_EMAIL") ?? "";
+}
+
 function config(): ResendConfig {
   const apiKey = Deno.env.get("RESEND_API_KEY");
-  const from = Deno.env.get("RESEND_FROM_EMAIL");
+  const from = getFromAddress();
   if (!apiKey || !from) {
     throw new ResendError("El envío de correo no está configurado en el servidor.", 500);
   }
@@ -35,7 +41,16 @@ function messageFromBody(body: unknown, fallback: string): string {
 }
 
 export async function sendEmail(params: SendEmailParams): Promise<{ id: string }> {
-  const { apiKey, from } = config();
+  const { apiKey, from: configuredFrom } = config();
+
+  const requestBody: Record<string, unknown> = {
+    from: params.from ?? configuredFrom,
+    to: params.to,
+    subject: params.subject,
+    html: params.html,
+  };
+  if (params.attachments) requestBody.attachments = params.attachments;
+  if (params.replyTo) requestBody.reply_to = [params.replyTo];
 
   let response: Response;
   try {
@@ -45,7 +60,7 @@ export async function sendEmail(params: SendEmailParams): Promise<{ id: string }
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, ...params }),
+      body: JSON.stringify(requestBody),
     });
   } catch (cause) {
     throw new ResendError(
