@@ -68,14 +68,176 @@ function moneyLabel(value: number, currency: string): string {
   }
 }
 
+// Mismo esquema visual que las plantillas ya publicadas en Resend (Factio -
+// Confirmación de correo / Confirmación de pago): header navy (#052659) con
+// logo, tarjeta blanca redondeada, tarjeta de resumen gris (#f9fafb),
+// Arial/Helvetica, footer "Factio · Facturación CFDI simplificada". Se
+// mantiene inline y basado en tablas por compatibilidad con clientes de
+// correo (Outlook, Gmail, etc.) — igual que las plantillas de Resend.
+const FACTIO_LOGO_URL = "https://drive.google.com/uc?export=view&id=1CTNNQEDfbpvx0XRgK0zpZZV-4V9pndAw";
+
 function buildHtml(input: InvoiceEmailInput): string {
   const greeting = input.clientName ? `Hola ${input.clientName},` : "Hola,";
-  return `<div style="font-family: -apple-system, Helvetica, Arial, sans-serif; color: #111; line-height: 1.5;">
-  <p>${greeting}</p>
-  <p>Adjuntamos tu factura <strong>${input.folioLabel}</strong> de <strong>${input.companyName}</strong> por un total de <strong>${moneyLabel(input.total, input.currency)}</strong>.</p>
-  <p>Este correo incluye el PDF y el XML de tu Comprobante Fiscal Digital por Internet (CFDI).</p>
-  <p>Gracias por tu preferencia.</p>
-</div>`;
+  const totalLabel = moneyLabel(input.total, input.currency);
+
+  return `<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="color-scheme" content="light only" />
+    <meta name="supported-color-schemes" content="light only" />
+    <title>Tu factura ${input.folioLabel}</title>
+  </head>
+  <body style="margin:0; padding:0; background-color:#f4f4f5;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f4f4f5">
+      <tr>
+        <td align="center" style="padding-top:40px; padding-bottom:40px;">
+          <table
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            bgcolor="#ffffff"
+            style="max-width:600px; width:100%; border-radius:8px; overflow:hidden;"
+          >
+            <!-- Header -->
+            <tr>
+              <td align="center" bgcolor="#052659" style="padding-top:32px; padding-bottom:32px;">
+                <img
+                  src="${FACTIO_LOGO_URL}"
+                  width="120"
+                  height="120"
+                  border="0"
+                  alt="Factio"
+                  style="display:block; width:120px; height:120px;"
+                />
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:40px 40px 8px 40px;">
+                <p
+                  style="margin:0 0 16px 0; font-family: Arial, Helvetica, sans-serif; font-size:20px; line-height:28px; color:#111827; font-weight:bold;"
+                >
+                  Tu factura está lista
+                </p>
+                <p
+                  style="margin:0 0 24px 0; font-family: Arial, Helvetica, sans-serif; font-size:15px; line-height:24px; color:#374151;"
+                >
+                  ${greeting} adjuntamos tu factura <strong>${input.folioLabel}</strong> de <strong>${input.companyName}</strong>. Este correo incluye el PDF y el XML de tu Comprobante Fiscal Digital por Internet (CFDI).
+                </p>
+              </td>
+            </tr>
+
+            <!-- Invoice summary card -->
+            <tr>
+              <td style="padding:0 40px 24px 40px;">
+                <table
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  bgcolor="#f9fafb"
+                  style="border-radius:8px;"
+                >
+                  <tr>
+                    <td style="padding:24px;">
+                      <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td
+                            style="padding-bottom:12px; font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#6b7280;"
+                          >
+                            Factura
+                          </td>
+                          <td
+                            align="right"
+                            style="padding-bottom:12px; font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#111827; font-weight:bold;"
+                          >
+                            ${input.folioLabel}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="padding-bottom:12px; font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#6b7280;"
+                          >
+                            Emisor
+                          </td>
+                          <td
+                            align="right"
+                            style="padding-bottom:12px; font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#111827;"
+                          >
+                            ${input.companyName}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style="font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#6b7280;"
+                          >
+                            Total
+                          </td>
+                          <td
+                            align="right"
+                            style="font-family: Arial, Helvetica, sans-serif; font-size:14px; line-height:20px; color:#111827; font-weight:bold;"
+                          >
+                            ${totalLabel}
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Divider -->
+            <tr>
+              <td style="padding:0 40px;">
+                <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td style="border-top:1px solid #e5e7eb; font-size:1px; line-height:1px;">&nbsp;</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer note -->
+            <tr>
+              <td style="padding:24px 40px 40px 40px;">
+                <p
+                  style="margin:0; font-family: Arial, Helvetica, sans-serif; font-size:13px; line-height:20px; color:#9ca3af;"
+                >
+                  Gracias por tu preferencia. ¿Tienes dudas sobre esta factura? Responde este correo y te ayudamos.
+                </p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Outer footer -->
+          <table
+            width="600"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="max-width:600px; width:100%; padding-top:24px;"
+          >
+            <tr>
+              <td align="center">
+                <p
+                  style="margin:0; font-family: Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; color:#9ca3af;"
+                >
+                  Factio &middot; Facturación CFDI simplificada
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }
 
 export function resolveClientEmail(
