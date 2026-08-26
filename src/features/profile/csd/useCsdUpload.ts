@@ -48,6 +48,7 @@ export function useCsdUpload(profile: CompanyProfileData) {
   const [cerFile, setCerFile] = useState<File | null>(null);
   const [keyFile, setKeyFile] = useState<File | null>(null);
   const [password, setPassword] = useState("");
+  const [consentGiven, setConsentGiven] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<"cer" | "key" | "password" | null>(null);
@@ -56,7 +57,9 @@ export function useCsdUpload(profile: CompanyProfileData) {
   const hasExistingFiles = Boolean(profile.company?.csd_cer_url && profile.company?.csd_key_url);
   const hasReplacementFiles = Boolean(cerFile && keyFile);
   const canSave =
-    (hasReplacementFiles || (!cerFile && !keyFile && hasExistingFiles)) && password.length > 0;
+    (hasReplacementFiles || (!cerFile && !keyFile && hasExistingFiles)) &&
+    password.length > 0 &&
+    consentGiven;
 
   async function save(): Promise<boolean> {
     if (!profile.company) {
@@ -77,6 +80,7 @@ export function useCsdUpload(profile: CompanyProfileData) {
           password,
           cer_base64: cerBase64,
           key_base64: keyBase64,
+          csd_usage_consent: consentGiven,
         },
       });
       if (functionError) {
@@ -96,6 +100,7 @@ export function useCsdUpload(profile: CompanyProfileData) {
       setCerFile(null);
       setKeyFile(null);
       setPassword("");
+      setConsentGiven(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["company-profile"] }),
         queryClient.invalidateQueries({ queryKey: ["profile"] }),
@@ -118,6 +123,8 @@ export function useCsdUpload(profile: CompanyProfileData) {
     setKeyFile,
     password,
     setPassword,
+    consentGiven,
+    setConsentGiven,
     saving,
     error,
     fieldError,

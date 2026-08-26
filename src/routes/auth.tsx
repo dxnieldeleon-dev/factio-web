@@ -31,6 +31,7 @@ function AuthPage() {
   const [resetSent, setResetSent] = useState(false);
   const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   useEffect(() => {
     if (modeParam && modeParam !== mode) setMode(modeParam);
@@ -49,12 +50,25 @@ function AuthPage() {
     setUnconfirmedEmail(null);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: window.location.origin + "/dashboard" },
         });
         if (error) throw error;
+        if (data.session) {
+          // Con sesión activa (confirmación de correo desactivada) podemos
+          // guardar el consentimiento de inmediato; si no hay sesión, queda
+          // pendiente en sessionStorage y se guarda cuando el usuario
+          // confirme su correo e inicie sesión (ver _authenticated/route.tsx).
+          const now = new Date().toISOString();
+          await supabase
+            .from("settings")
+            .update({ terms_accepted_at: now, privacy_accepted_at: now })
+            .eq("user_id", data.user!.id);
+        } else {
+          sessionStorage.setItem("factio_pending_consent", "1");
+        }
         toast.success("Cuenta creada. Bienvenido a Factio.");
         navigate({ to: "/dashboard", replace: true });
       } else {
@@ -115,12 +129,16 @@ function AuthPage() {
   async function onGoogle() {
     setLoading(true);
     try {
+      if (mode === "signup" && acceptedTerms) {
+        sessionStorage.setItem("factio_pending_consent", "1");
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: window.location.origin + "/dashboard" },
       });
       if (error) throw error;
     } catch (err) {
+      sessionStorage.removeItem("factio_pending_consent");
       toast.error(err instanceof Error ? err.message : "Falló el inicio con Google");
       setLoading(false);
     }
@@ -210,7 +228,7 @@ function AuthPage() {
       <button
         type="button"
         onClick={onGoogle}
-        disabled={loading}
+        disabled={loading || (mode === "signup" && !acceptedTerms)}
         className="mt-8 flex items-center justify-center gap-3 rounded-2xl border border-border bg-surface px-5 py-3.5 text-sm font-semibold shadow-soft transition hover:bg-accent disabled:opacity-60"
       >
         <GoogleLogo />
@@ -285,7 +303,7 @@ function AuthPage() {
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={loading || (mode === "signup" && !acceptedTerms)}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-foreground py-4 text-sm font-semibold text-background transition active:scale-[0.98] disabled:opacity-60"
         >
           {loading ? (
@@ -310,17 +328,25 @@ function AuthPage() {
       </p>
 
       {mode === "signup" && (
-        <p className="mt-4 text-center text-xs text-muted-foreground">
-          Al crear una cuenta aceptas nuestros{" "}
-          <Link to="/terminos" className="font-medium text-primary hover:underline">
-            Términos y Condiciones
-          </Link>{" "}
-          y nuestro{" "}
-          <Link to="/privacidad" className="font-medium text-primary hover:underline">
-            Aviso de Privacidad
-          </Link>
-          .
-        </p>
+        <label className="mt-4 flex items-start gap-2.5 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            className="mt-0.5 size-4 shrink-0 rounded border-input"
+          />
+          <span>
+            He leído y acepto los{" "}
+            <Link to="/terminos" className="font-medium text-primary hover:underline">
+              Términos y Condiciones
+            </Link>{" "}
+            y el{" "}
+            <Link to="/privacidad" className="font-medium text-primary hover:underline">
+              Aviso de Privacidad
+            </Link>
+            .
+          </span>
+        </label>
       )}
     </div>
   );

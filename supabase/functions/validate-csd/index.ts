@@ -30,6 +30,7 @@ type CsdRequest = {
   // (p. ej. para confirmar la contraseña sin volver a adjuntar los archivos).
   cer_base64?: unknown;
   key_base64?: unknown;
+  csd_usage_consent?: unknown;
 };
 
 type CsdValidation =
@@ -204,6 +205,15 @@ Deno.serve(async (req) => {
   ) {
     return json({ success: false, error: "company_id y password son obligatorios." }, 400);
   }
+  if (payload.csd_usage_consent !== true) {
+    return json(
+      {
+        success: false,
+        error: "Debes autorizar el uso de tu CSD para el timbrado y cancelación de tus CFDIs.",
+      },
+      400,
+    );
+  }
 
   const supabase = userClient(url, anonKey, token);
   const { data: company, error: companyError } = await supabase
@@ -374,6 +384,7 @@ Deno.serve(async (req) => {
       csd_valid_to: validation.validTo,
       csd_status: "uploaded",
       csd_uploaded_at: new Date().toISOString(),
+      csd_usage_consent_at: new Date().toISOString(),
       csd_last_error: null,
       onboarding_completed: true,
     })

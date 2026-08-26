@@ -77,6 +77,18 @@ export function CsdUploadScreen({ csd, onValidated }: CsdUploadScreenProps) {
           Nunca se guarda: solo se usa para validar y se descarta de inmediato.
         </p>
       </Field>
+      <label className="flex items-start gap-2.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={csd.consentGiven}
+          onChange={(e) => csd.setConsentGiven(e.target.checked)}
+          className="mt-0.5 size-4 shrink-0 rounded border-input"
+        />
+        <span>
+          Autorizo el uso de mi Certificado de Sello Digital (CSD) para el timbrado y cancelación
+          de mis CFDIs a través del PAC autorizado.
+        </span>
+      </label>
       {csd.error && (
         <p className="rounded-xl bg-destructive/10 px-3 py-2.5 text-[12px] text-destructive">
           {csd.error}
