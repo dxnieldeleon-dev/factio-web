@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Factio</string>
+    <string name="title_activity_main">Factio</string>
+    <string name="package_name">mx.factio.app</string>
+    <string name="custom_url_scheme">mx.factio.app</string>
+</resources>
